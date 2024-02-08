@@ -21,7 +21,7 @@ positional arguments:
 
 options:
   Note: 
-    * exactly one of -sign or -verify must be specified.
+    * Exactly one of -sign or -verify must be specified.
     * The -key and -sigfile options must always be specified.
 
   -sign
@@ -49,12 +49,19 @@ examples:
   ./pkeyutl -sign -key alice-ik.pem -sigfile foo.sig foo
   ./pkeyutl -verify -key alice-ik-pub.pem -sigfile foo.sig foo`
 
-type options struct {
+type Options struct {
+	// positional
+	msgPath string
+
+	// options
 	sign    bool
 	verify  bool
 	key     string
 	keyform string
 	sigfile string
+
+	// derived
+	encoding keyutl.KeyEncoding
 }
 
 func printUsage() {
@@ -97,10 +104,9 @@ func doVerify(pubPath string, keyform keyutl.KeyEncoding, msgData []byte, sigfil
 	return valid, nil
 }
 
-func main() {
+func parseOptions() *Options {
 	var err error
-	var valid bool
-	opts := options{}
+	opts := Options{}
 
 	flag.Usage = printUsage
 	flag.BoolVar(&opts.sign, "sign", false, "")
@@ -111,10 +117,6 @@ func main() {
 
 	flag.Parse()
 
-	if flag.NArg() != 1 {
-		mu.Die(shortUsage)
-	}
-
 	if !opts.sign && !opts.verify {
 		mu.Die("error: must specify -sign or -verify")
 	}
@@ -123,7 +125,7 @@ func main() {
 		mu.Die("error: can't specify both -sign and -verify")
 	}
 
-	encoding, err := keyutl.StringToKeyEncoding(opts.keyform)
+	opts.encoding, err = keyutl.StringToKeyEncoding(opts.keyform)
 	if err != nil {
 		mu.Die("%v", err)
 	}
@@ -136,16 +138,29 @@ func main() {
 		mu.Die("error: must specify -sigfile")
 	}
 
-	msgPath := flag.Arg(0)
-	msgData, err := os.ReadFile(msgPath)
+	if flag.NArg() != 1 {
+		mu.Die(shortUsage)
+	}
+	opts.msgPath = flag.Arg(0)
+
+	return &opts
+}
+
+func main() {
+	var err error
+	var valid bool
+
+	opts := parseOptions()
+
+	msgData, err := os.ReadFile(opts.msgPath)
 	if err != nil {
 		mu.Die("error: can't read message file: %v", err)
 	}
 
 	if opts.sign {
-		err = doSign(opts.key, encoding, msgData, opts.sigfile)
+		err = doSign(opts.key, opts.encoding, msgData, opts.sigfile)
 	} else {
-		valid, err = doVerify(opts.key, encoding, msgData, opts.sigfile)
+		valid, err = doVerify(opts.key, opts.encoding, msgData, opts.sigfile)
 	}
 
 	if err != nil {

@@ -20,11 +20,10 @@ Generate an identity keypair (ED25519 keys) or an ECDH keypair (X25519 keys).
 positional arguments:
   KEYPATH
     The output path for the private key.  The private key is written to a file
-    called KEYPATH-priv-KEYTYPE.OUTFORM and the public key to
-    KEYPATH-pub-KEYTYPE.OUTFORM.  FOr instance, if KEYPATH is /foo/bar/alice,
+    called KEYPATH-KEYTYPE.OUTFORM and the public key to
+    KEYPATH-KEYTYPE-pub.OUTFORM.  For instance, if KEYPATH is /foo/bar/alice,
     then "genpkey -type ek -outform pem" creates the private key file
-    "/foo/bar/alice-priv-ek.pem" and the public key file
-    "/foo/bar/alice-pub-ek.pem"
+    "/foo/bar/alice-ek.pem" and the public key file "/foo/bar/alice-ek-pub.pem"
 
 options:
   -h, -help
@@ -34,13 +33,15 @@ options:
     The type of key.
       * ik keys ("identity keys") are ED25519 keys that can be used for
          signing and verifying.
-      *  ek keys ("emphemeral keys" are X25519 keys for elliptic curve
+      * ek keys ("ephemeral keys") are X25519 keys for elliptic curve
          Diffie-Hellman key exchanges.  These are also called pre-keys.
+         The setup key is also an example of an ek key.
 
   -outform raw|der|pem  (default: pem)
     The encoding for the key files.
 
 examples:
+    # generate an emphemeral ECDH (X25519) keypair for alice
   ./genpkey -outform der -keytype ek alice`
 
 type options struct {
@@ -53,8 +54,8 @@ func printUsage() {
 }
 
 func createKeyNames(basePath, format, keyType string) (string, string) {
-	pubPath := fmt.Sprintf("%s-pub-%s.%s", basePath, keyType, format)
-	privPath := fmt.Sprintf("%s-priv-%s.%s", basePath, keyType, format)
+	pubPath := fmt.Sprintf("%s-%s-pub.%s", basePath, keyType, format)
+	privPath := fmt.Sprintf("%s-%s.%s", basePath, keyType, format)
 	return pubPath, privPath
 }
 

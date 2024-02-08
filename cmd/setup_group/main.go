@@ -18,9 +18,9 @@ import (
 	"art/internal/tree"
 )
 
-const shortUsage = "groupsetup [options] CONFIG_FILE PRIV_IK_FILE"
+const shortUsage = "setup_group [options] CONFIG_FILE PRIV_IK_FILE"
 
-const usage = `groupsetup [options] CONFIG_FILE PRIV_IK_FILE
+const usage = `setup_group [options] CONFIG_FILE PRIV_IK_FILE
 
 Setup the ART group.
 
@@ -47,8 +47,8 @@ positional arguments:
 
   PRIV_IK_FILE
     The initiator's private identity key file.  This is a PEM-encoded ED25519
-    key.  This key is signs the message file that the setup creates, and writes
-    the signature to MSG_FILE.sig.
+    key.  This key signs the setup message; the signature is written to
+    MSG_FILE.sig.
 
 options:
   -initiator NAME
@@ -60,7 +60,10 @@ options:
     The output directory.  The program will place various output files
     in this directory, such as the leaf key for each member.  If not
     provided, the program sets outdir to basename(CONFIG_FILE).dir.
-    If the outdir does not exist, the program creates it.`
+    If the outdir does not exist, the program creates it.
+
+example:
+    ./setup_group -initiator alice -outdir group.d group.cfg alice-ik.pem`
 
 /* Group is size n (the initiator, and the n-1 peers) */
 
@@ -69,11 +72,16 @@ func printUsage() {
 }
 
 type options struct {
+	// positional
 	configFile string
 	privIKFile string
-	initiator  string
-	outdir     string
-	sigFile    string
+
+	// options
+	initiator string
+	outdir    string
+
+	// TODO
+	sigFile string
 }
 
 type member struct {
@@ -188,7 +196,7 @@ func (g *group) setup(opts *options) {
 		mu.Die("failed to create ART tree: %v", err)
 	}
 
-	//// verifying that the tree key here matches the one derived in processmsg
+	//// for debugging that the tree key here matches the one derived in process_setup_message
 	fmt.Println(keyutl.MarshalPrivateEKToPEM(treeSecret.GetSk()))
 	fmt.Println()
 
@@ -253,7 +261,7 @@ func (g *group) createMessage(opts *options, suk *ecdh.PublicKey, treePublic *tr
 		mu.Die("error signing message file: %v", err)
 	}
 
-	sigFile := filepath.Join(opts.outdir, "setup.sig")
+	sigFile := filepath.Join(opts.outdir, "setup.msg.sig")
 	err = os.WriteFile(sigFile, sig, 0440)
 	if err != nil {
 		mu.Die("can't write signature file: %v", err)
@@ -263,11 +271,10 @@ func (g *group) createMessage(opts *options, suk *ecdh.PublicKey, treePublic *tr
 }
 
 func newGroupFromFile(configFile string) *group {
-	var m *member
 	var err error
-
-	nameSet := make(map[string]bool)
+	var m *member
 	g := &group{}
+	nameSet := make(map[string]bool)
 
 	f, err := os.Open(configFile)
 	if err != nil {

@@ -9,12 +9,7 @@ import (
 )
 
 func SignFile(privIKFile string, msgFile string) ([]byte, error) {
-	encoding, err := keyutl.StringToKeyEncoding("pem")
-	if err != nil {
-		panic(err)
-	}
-
-	sk, err := keyutl.ReadPrivateIKFromFile(privIKFile, encoding)
+	sk, err := keyutl.ReadPrivateIKFromFile(privIKFile, keyutl.PEM)
 	if err != nil {
 		return nil, fmt.Errorf("can't read private key file: %v", err)
 	}
@@ -31,4 +26,24 @@ func SignFile(privIKFile string, msgFile string) ([]byte, error) {
 	}
 
 	return sig, nil
+}
+
+func VerifySignature(pkPath, msgFile, sigFile string) (bool, error) {
+	pk, err := keyutl.ReadPublicIKFromFile(pkPath, keyutl.PEM)
+	if err != nil {
+		return false, fmt.Errorf("can't read public key file: %v", err)
+	}
+
+	msgData, err := os.ReadFile(msgFile)
+	if err != nil {
+		return false, fmt.Errorf("can't read message file: %v", err)
+	}
+
+	sigData, err := os.ReadFile(sigFile)
+	if err != nil {
+		return false, fmt.Errorf("can't read signature file: %v", err)
+	}
+
+	valid := ed25519.Verify(pk, msgData, sigData)
+	return valid, nil
 }

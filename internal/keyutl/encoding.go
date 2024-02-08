@@ -8,7 +8,7 @@ import (
 type KeyEncoding int
 
 const (
-	Unknown = iota
+	Unknown KeyEncoding = iota
 	Raw
 	DER
 	PEM

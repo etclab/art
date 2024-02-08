@@ -22,6 +22,7 @@ type PublicNode struct {
 	Height int // a height of zero indicates a leaf node
 }
 
+// XXX: never called
 func NodeIsLeaf(node *Node) bool {
 	return node.left == nil && node.right == nil
 }
@@ -42,12 +43,12 @@ func CreateTree(leafKeys []*ecdh.PrivateKey) (*Node, error) {
 	}
 
 	// recurse
-	h := leftSubtreeSize(n)
-	left, err := CreateTree(leafKeys[:h])
+	numLeaves := leftSubtreeSize(n)
+	left, err := CreateTree(leafKeys[:numLeaves])
 	if err != nil {
 		return nil, err
 	}
-	right, err := CreateTree(leafKeys[h:])
+	right, err := CreateTree(leafKeys[numLeaves:])
 	if err != nil {
 		return nil, err
 	}
@@ -184,6 +185,7 @@ func updateHeights(node *Node) *Node {
 	return node
 }
 
+// XXX: probably don't need this getter
 func (Node *Node) GetSk() *ecdh.PrivateKey {
 	return Node.sk
 }

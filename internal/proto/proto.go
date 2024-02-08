@@ -10,6 +10,8 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
+const StageKeySize = 32
+
 func DHKeyGen() (*ecdh.PrivateKey, error) {
 	curve := ecdh.X25519() // multiple invocations of this function return the same value
 	return curve.GenerateKey(rand.Reader)
@@ -47,8 +49,10 @@ func DeriveStageKey(tk *ecdh.PrivateKey, info *StageKeyInfo) ([]byte, error) {
 	hash := sha256.New
 	// secret is tree key
 	// info should be struct with: array of ids & array of public key nodes
+	// XXX: how would the old stage key be input into the HKDF?  Would you
+	// prepend it to tk.Bytes()?
 	hkdf := hkdf.New(hash, tk.Bytes(), nil, info.ToBytes())
-	stageKey := make([]byte, 32)
+	stageKey := make([]byte, StageKeySize)
 	_, err := io.ReadFull(hkdf, stageKey)
 	if err != nil {
 		return nil, err

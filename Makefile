@@ -1,17 +1,17 @@
-progs= genpkey pkeyutl groupsetup processmsg
+progs= genpkey pkeyutl setup_group process_setup_message
 
-all: $(progs)
+all:  $(progs)
 
-$(progs):
+$(progs): % : vet
 	go build ./cmd/$@
+
+vet: fmt
+	go vet ./...
 
 fmt:
 	go fmt ./...
 
-vet:
-	go vet ./...
-
 clean:
 	rm -f $(progs)
 
-.PHONY: $(progs) all fmt vet clean
+.PHONY: all vet fmt clean
