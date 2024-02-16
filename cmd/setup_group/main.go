@@ -365,5 +365,6 @@ func main() {
 		mu.Die("error: can't create outdir: %v", err)
 	}
 
+	// TODO: save the tree state for initiator to a file?
 	g.setup(opts)
 }

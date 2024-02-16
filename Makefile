@@ -1,4 +1,4 @@
-progs= genpkey pkeyutl setup_group process_setup_message
+progs= genpkey pkeyutl setup_group process_setup_message update_key process_update_message
 
 all:  $(progs)
 

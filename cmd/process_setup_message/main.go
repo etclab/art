@@ -47,9 +47,10 @@ options:
     This setup message's corresponding signature file (signed with the initiator's IK).
     If not provided, the tool will look for a file SETUP_MESSAGE_FILE.sig.
 
+  // TODO: json output
   -out-state STATE_FILE
     The file to output the node's state after processing the setup message.  If
-    not provided, the default is state.json.
+    not provided, the default is state.json. 
 
 
 examples:
@@ -86,7 +87,6 @@ type treeState struct {
 	ikeys      [][]byte
 }
 
-/*
 type treeGob struct {
 	PublicTree [][]byte
 	Sk         []byte
@@ -96,7 +96,7 @@ type treeGob struct {
 
 func updateTreeState(opts *options, state *treeState) {
 	// creating/truncating the TREE_FILE
-	tree_file, err := os.Create(opts.treeState)
+	tree_file, err := os.Create(opts.outStateFile)
 	if err != nil {
 		mu.Die("error creating TREE_FILE: %v", err)
 	}
@@ -123,7 +123,6 @@ func updateTreeState(opts *options, state *treeState) {
 	enc.Encode(treegob)
 	tree_file.Close()
 }
-*/
 
 // TODO: move this to internal/tree/tree.go
 func copath(root *tree.PublicNode, idx int, copathNodes []*ecdh.PublicKey) []*ecdh.PublicKey {
@@ -271,7 +270,8 @@ func parseOptions() *options {
 
 	flag.Usage = printUsage
 	flag.StringVar(&opts.sigFile, "sigfile", "", "")
-	flag.StringVar(&opts.outStateFile, "out-state", "state.json", "")
+	// TODO: json output
+	flag.StringVar(&opts.outStateFile, "out-state", "", "The file to write tree state to")
 	flag.Parse()
 
 	if flag.NArg() != 4 {
@@ -310,13 +310,10 @@ func main() {
 	sk = processMessage(opts, &state)
 	//fmt.Println(sk)
 
-	/*
-		// write the new tree state to the tree state file
-		updateTreeState(opts, &state)
+	// write the new tree state to the tree state file
+	updateTreeState(opts, &state)
 
-		// print out the current stage key - may want to add a stage number?
-	*/
-
+	// TODO: print out the current stage key - may want to add a stage number?
 	fmt.Println("Final/current stage key: ")
 	fmt.Println(sk)
 }
