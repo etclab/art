@@ -7,7 +7,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/binary"
-	"encoding/gob"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -85,7 +85,7 @@ type treeState struct {
 	ikeys      [][]byte
 }
 
-type treeGob struct {
+type treejson struct {
 	PublicTree [][]byte
 	Sk         []byte
 	Lk         []byte
@@ -116,31 +116,31 @@ func verifyMAC(sk ed25519.PrivateKey, msg updateMessage, macFile string) (bool, 
 
 func processTreeState(opts *options, state *treeState) {
 	// decoding the file containing the tree state
-	var treegob treeGob
+	var treejson treejson
 	dec_message, err := os.Open(opts.treeStateFile)
 	if err != nil {
 		mu.Die("error opening TREE_FILE:", err)
 	}
-	dec := gob.NewDecoder(dec_message)
-	err = dec.Decode(&treegob)
+	dec := json.NewDecoder(dec_message)
+	err = dec.Decode(&treejson)
 	if err != nil {
 		mu.Die("error decoding state from TREE_FILE:", err)
 	}
 	dec_message.Close()
 
 	// converting the []byte values into the tree state values
-	state.ikeys = treegob.Ikeys
-	state.publicTree, err = tree.UnmarshalKeysToPublicTree(treegob.PublicTree)
+	state.ikeys = treejson.Ikeys
+	state.publicTree, err = tree.UnmarshalKeysToPublicTree(treejson.PublicTree)
 	if err != nil {
 		mu.Die("error unmarshaling private tree from TREE_FILE", err)
 	}
 
-	state.sk, err = keyutl.UnmarshalPrivateIKFromPEM(treegob.Sk)
+	state.sk, err = keyutl.UnmarshalPrivateIKFromPEM(treejson.Sk)
 	if err != nil {
 		mu.Die("error unmarshaling private stage key from TREE_FILE: %v", err)
 	}
 
-	state.lk, err = keyutl.UnmarshalPrivateEKFromPEM(treegob.Lk)
+	state.lk, err = keyutl.UnmarshalPrivateEKFromPEM(treejson.Lk)
 	if err != nil {
 		mu.Die("error unmarshaling private leaf key from TREE_FILE: %v", err)
 	}
@@ -154,7 +154,7 @@ func updateTreeState(opts *options, state *treeState) {
 		mu.Die("error creating TREE_FILE: %v", err)
 	}
 
-	// filling in the treeGob struct to encode into the tree state file
+	// filling in the treejson struct to encode into the tree state file
 	publicTree, err := state.publicTree.MarshalKeys()
 	if err != nil {
 		mu.Die("failed to marshal the private keys from the current tree state: %v", err)
@@ -171,9 +171,9 @@ func updateTreeState(opts *options, state *treeState) {
 	}
 
 	// encoding the tree state
-	enc := gob.NewEncoder(tree_file)
-	treegob := treeGob{publicTree, sk, lk, state.ikeys}
-	enc.Encode(treegob)
+	enc := json.NewEncoder(tree_file)
+	treejson := treejson{publicTree, sk, lk, state.ikeys}
+	enc.Encode(treejson)
 	tree_file.Close()
 }
 
@@ -280,7 +280,7 @@ func processUpdateMessage(opts *options, updateMsg string, state *treeState) ed2
 	if err != nil {
 		mu.Die("error opening message file: %v", err)
 	}
-	dec := gob.NewDecoder(dec_message)
+	dec := json.NewDecoder(dec_message)
 	err = dec.Decode(&upMsg)
 	if err != nil {
 		mu.Die("error decoding message from file: %v", err)

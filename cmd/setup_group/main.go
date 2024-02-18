@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"crypto/ecdh"
 	"crypto/ed25519"
-	"encoding/gob"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -245,7 +245,7 @@ func (g *group) createMessage(opts *options, suk *ecdh.PublicKey, treePublic *tr
 	}
 
 	// encoding the message
-	enc := gob.NewEncoder(msgFile)
+	enc := json.NewEncoder(msgFile)
 
 	treeMarshalledKeys, err := treePublic.MarshalKeys()
 	if err != nil {

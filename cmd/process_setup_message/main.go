@@ -3,7 +3,7 @@ package main
 import (
 	"crypto/ecdh"
 	"crypto/ed25519"
-	"encoding/gob"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"math"
@@ -87,7 +87,7 @@ type treeState struct {
 	ikeys      [][]byte
 }
 
-type treeGob struct {
+type treejson struct {
 	PublicTree [][]byte
 	Sk         []byte
 	Lk         []byte
@@ -101,7 +101,7 @@ func updateTreeState(opts *options, state *treeState) {
 		mu.Die("error creating TREE_FILE: %v", err)
 	}
 
-	// filling in the treeGob struct to encode into the tree state file
+	// filling in the treejson struct to encode into the tree state file
 	publicTree, err := state.publicTree.MarshalKeys()
 	if err != nil {
 		mu.Die("failed to marshal the private keys from the current tree state: %v", err)
@@ -118,9 +118,9 @@ func updateTreeState(opts *options, state *treeState) {
 	}
 
 	// encoding the tree state
-	enc := gob.NewEncoder(tree_file)
-	treegob := treeGob{publicTree, sk, lk, state.ikeys}
-	enc.Encode(treegob)
+	enc := json.NewEncoder(tree_file)
+	treejson := treejson{publicTree, sk, lk, state.ikeys}
+	enc.Encode(treejson)
 	tree_file.Close()
 }
 
@@ -197,7 +197,7 @@ func processMessage(opts *options, state *treeState) ed25519.PrivateKey {
 	if err != nil {
 		mu.Die("error opening message file:", err)
 	}
-	dec := gob.NewDecoder(dec_message)
+	dec := json.NewDecoder(dec_message)
 	err = dec.Decode(&m)
 	if err != nil {
 		mu.Die("error decoding message from file:", err)
