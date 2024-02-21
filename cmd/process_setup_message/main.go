@@ -308,7 +308,6 @@ func main() {
 	}
 
 	sk = processMessage(opts, &state)
-	//fmt.Println(sk)
 
 	/*
 		// write the new tree state to the tree state file

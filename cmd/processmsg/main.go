@@ -24,8 +24,8 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
-const shortUsage = "Usage: processmsg [options] INDEX PRIVATE_EK_KEY_FILE TREE_FILE"
-const usage = `Usage: processmsg [options] INDEX PRIVATE_EK_KEY_FILE TREE_FILE
+const shortUsage = "Usage: process_setup_message [options] INDEX PRIVATE_EK_KEY_FILE TREE_FILE"
+const usage = `Usage: process_setup_message [options] INDEX PRIVATE_EK_KEY_FILE TREE_FILE
 
 Process a group setup message as a group member at position INDEX
 
@@ -75,19 +75,22 @@ options:
 	update messages are processed.
 
 examples:
-  ./processmsg -setup groupconfig.dir/message -pk alice-ik-pub.pem -u bob_update_key 2 bob-ek.pem bob_tree_state
-  ./processmsg -setup groupconfig.dir/message -pk alice-ik-pub.pem -pu bob_update_key 3 mary-ek.pem mary_tree_state
-  ./processmsg -u mary_update_key 3 mary-ek.pem mary_tree_state
-  ./processmsg -pu mary_update_key 2 bob-ek.pem bob_tree_state`
+  ./process_setup_message -setup groupconfig.dir/message -pk alice-ik-pub.pem -u bob_update_key 2 bob-ek.pem bob_tree_state
+  ./process_setup_message -setup groupconfig.dir/message -pk alice-ik-pub.pem -pu bob_update_key 3 mary-ek.pem mary_tree_state
+  ./process_setup_message -u mary_update_key 3 mary-ek.pem mary_tree_state
+  ./process_setup_message -pu mary_update_key 2 bob-ek.pem bob_tree_state`
 
 func printUsage() {
 	fmt.Println(usage)
 }
 
 type options struct {
-	idx        int
-	ek         string
-	treeState  string
+	// positional arguments
+	idx       int
+	ek        string
+	treeState string
+
+	// options
 	setupMsg   string
 	pk         string
 	updateMsgs string
@@ -126,13 +129,9 @@ type treeGob struct {
 	Ikeys      [][]byte
 }
 
+// TODO: move this function to internal/cryptutl/sign.go
 func verifySetup(pkPath string, msgfile string, sigfile string) (bool, error) {
-	encoding, err := keyutl.StringToKeyEncoding("pem")
-	if err != nil {
-		mu.Die("%v", err)
-	}
-
-	pk, err := keyutl.ReadPublicIKFromFile(pkPath, encoding)
+	pk, err := keyutl.ReadPublicIKFromFile(pkPath, keyutl.PEM)
 	if err != nil {
 		return false, fmt.Errorf("can't read public key file: %v", err)
 	}
@@ -286,6 +285,7 @@ func deriveStageKey(tk *ecdh.PrivateKey, stageInfo *stageKeyInfo) ed25519.Privat
 	return stageKey
 }
 
+// TODO: move this to internal/tree/tree.go
 func copath(root *tree.PublicNode, idx int, copathNodes []*ecdh.PublicKey) []*ecdh.PublicKey {
 	// if len(copathNodes) == 0 {
 	// 	copathNodes = append(copathNodes, root.GetPk())
@@ -353,12 +353,7 @@ func updatePublicTree(pathKeys []*ecdh.PublicKey, root *tree.PublicNode, idx int
 }
 
 func deriveLeafKey(ekPath string, suk *ecdh.PublicKey) (*ecdh.PrivateKey, error) {
-	encoding, err := keyutl.StringToKeyEncoding("pem")
-	if err != nil {
-		mu.Die("%v", err)
-	}
-
-	ek, err := keyutl.ReadPrivateEKFromFile(ekPath, encoding)
+	ek, err := keyutl.ReadPrivateEKFromFile(ekPath, keyutl.PEM)
 	if err != nil {
 		return nil, fmt.Errorf("can't read private key file: %v", err)
 	}
@@ -378,6 +373,8 @@ func deriveLeafKey(ekPath string, suk *ecdh.PublicKey) (*ecdh.PrivateKey, error)
 
 func processMessage(opts *options, state *treeState) ed25519.PrivateKey {
 	// decoding the message file
+	// TODO: message should be a public struct in internal/proto/; make it
+	// serializable to json.
 	var m message
 	dec_message, err := os.Open(opts.setupMsg)
 	if err != nil {
@@ -390,7 +387,7 @@ func processMessage(opts *options, state *treeState) ed25519.PrivateKey {
 	}
 	dec_message.Close()
 
-	// unmarshalling all the keys (may be unnecessary)
+	// XXX: unmarshalling all the keys (may be unnecessary)
 	EKS := make([]*ecdh.PublicKey, 0, len(m.EKeys))
 	IKS := make([]ed25519.PublicKey, 0, len(m.IKeys))
 
@@ -401,6 +398,7 @@ func processMessage(opts *options, state *treeState) ed25519.PrivateKey {
 		}
 		EKS = append(EKS, unmarshalledEK)
 
+		// XXX: shouldn't this be keyutl.Unmarshal ?
 		unmarshalledIK, err := keyutl.MarshalPublicIKToPEM(m.IKeys[i])
 		if err != nil {
 			mu.Die("failed to marshal public IK")
@@ -410,7 +408,7 @@ func processMessage(opts *options, state *treeState) ed25519.PrivateKey {
 
 	suk, err := keyutl.UnmarshalPublicEKFromPEM(m.Suk)
 	if err != nil {
-		mu.Die("failed to marshal public SUK")
+		mu.Die("failed to unmarshal public SUK")
 	}
 
 	// unmarshalling the public tree
