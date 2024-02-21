@@ -17,6 +17,7 @@ import (
 
 	"art/internal/keyutl"
 	"art/internal/mu"
+	"art/internal/proto"
 	"art/internal/tree"
 
 	"golang.org/x/crypto/hkdf"
@@ -93,7 +94,6 @@ type treejson struct {
 }
 
 func verifyMAC(sk ed25519.PrivateKey, msg updateMessage, macFile string) (bool, error) {
-	fmt.Println(sk[:32])
 	// converting the update message contents into a byte array
 	bs := make([]byte, 4)
 	binary.LittleEndian.PutUint32(bs, uint32(msg.Idx))
@@ -325,8 +325,17 @@ func processUpdateMessage(opts *options, updateMsg string, state *treeState) ed2
 	}
 
 	tk := memPathKeys[len(memPathKeys)-1]
-	stageInfo := stageKeyInfo{IKeys: state.ikeys, TreeKeys: treeKeys}
-	state.sk = deriveStageKey(tk, &stageInfo)
+
+	stageInfo := proto.StageKeyInfo{
+		PrevStageKey:  state.sk,
+		TreeSecretKey: tk.Bytes(),
+		IKeys:         state.ikeys,
+		TreeKeys:      treeKeys,
+	}
+	state.sk, err = proto.DeriveStageKey(&stageInfo)
+	if err != nil {
+		mu.Die("DeriveStageKey failed: %v", err)
+	}
 
 	return state.sk
 }
@@ -367,5 +376,5 @@ func main() {
 	// write the new tree state to the tree state file
 	updateTreeState(opts, &state)
 
-	fmt.Printf("Stage key: %s\n", sk)
+	fmt.Printf("Stage key: %v\n", sk)
 }

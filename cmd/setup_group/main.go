@@ -205,8 +205,14 @@ func (g *group) setup(opts *options) {
 	msg := g.createMessage(opts, suk.PublicKey(), treePublic)
 
 	// deriving the stage key
-	stageInfo := proto.StageKeyInfo{IKeys: msg.IKeys, TreeKeys: msg.TreeKeys}
-	stageKey, err := proto.DeriveStageKey(treeSecret.GetSk(), &stageInfo)
+	stageInfo := proto.StageKeyInfo{
+		// During group setup, the PrevStageKey can be empty
+		PrevStageKey:  make([]byte, proto.StageKeySize),
+		TreeSecretKey: treeSecret.GetSk().Bytes(),
+		IKeys:         msg.IKeys,
+		TreeKeys:      msg.TreeKeys,
+	}
+	stageKey, err := proto.DeriveStageKey(&stageInfo)
 	if err != nil {
 		mu.Die("DeriveStageKey failed: %v", err)
 	}

@@ -303,8 +303,13 @@ func updateKey(opts *options, state *treeState) ed25519.PrivateKey {
 	}
 
 	// find the new stage key with the new tree key (and updated full tree)
-	stageInfo := proto.StageKeyInfo{IKeys: state.ikeys, TreeKeys: treeKeys}
-	state.sk, err = proto.DeriveStageKey(tk, &stageInfo)
+	stageInfo := proto.StageKeyInfo{
+		PrevStageKey:  state.sk,
+		TreeSecretKey: tk.Bytes(),
+		IKeys:         state.ikeys,
+		TreeKeys:      treeKeys,
+	}
+	state.sk, err = proto.DeriveStageKey(&stageInfo)
 	if err != nil {
 		mu.Die("DeriveStageKey failed: %v", err)
 	}

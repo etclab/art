@@ -254,9 +254,14 @@ func processMessage(opts *options, state *treeState) ed25519.PrivateKey {
 	tk := pathKeys[len(pathKeys)-1]
 
 	// stage key derivation
-	state.ikeys = m.IKeys
-	stageInfo := proto.StageKeyInfo{IKeys: m.IKeys, TreeKeys: m.TreeKeys}
-	state.sk, err = proto.DeriveStageKey(tk, &stageInfo)
+	stageInfo := proto.StageKeyInfo{
+		PrevStageKey:  state.sk,
+		TreeSecretKey: tk.Bytes(),
+		IKeys:         m.IKeys,
+		TreeKeys:      m.TreeKeys,
+	}
+	state.sk, err = proto.DeriveStageKey(&stageInfo)
+
 	if err != nil {
 		mu.Die("failed to derive the stage key: %v", err)
 	}
