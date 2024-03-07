@@ -2,10 +2,15 @@ package tree
 
 import (
 	"crypto/ecdh"
+	"crypto/ed25519"
+	"encoding/json"
 	"fmt"
 	"math"
+	"os"
 
 	"art/internal/keyutl"
+	"art/internal/mu"
+	"art/internal/proto"
 )
 
 type Node struct {
@@ -20,6 +25,22 @@ type PublicNode struct {
 	Left   *PublicNode
 	Right  *PublicNode
 	Height int // a height of zero indicates a leaf node
+}
+
+type treejson struct {
+	PublicTree [][]byte
+	Sk         []byte
+	Lk         []byte
+	IKeys      [][]byte
+}
+
+type TreeState struct {
+	// TODO: maybe add a tracker for the stage number to ensure updates
+	// are processed in the correct order
+	PublicTree *PublicNode        `json:"publicTree"`
+	Sk         ed25519.PrivateKey `json:"stageKey"`
+	Lk         *ecdh.PrivateKey   `json:"leafKey"`
+	IKeys      [][]byte           `json:"identityKeys"`
 }
 
 // XXX: never called
@@ -294,4 +315,97 @@ func updatePublicHeights(node *PublicNode) *PublicNode {
 		node.Height = right.Height + 1
 	}
 	return node
+}
+
+func CoPath(root *PublicNode, idx int, copathNodes []*ecdh.PublicKey) []*ecdh.PublicKey {
+	// if len(copathNodes) == 0 {
+	// 	copathNodes = append(copathNodes, root.GetPk())
+	// }
+
+	// height of 0 means we're at the leaf
+	if root.Height == 0 {
+		// copathNodes = append(copathNodes, root)
+		return copathNodes
+	}
+
+	// leaf is in the left subtree
+	if idx <= int(math.Pow(2, float64(root.Height)))/2 {
+		copathNodes = append(copathNodes, root.Right.GetPk())
+		return CoPath(root.Left, idx, copathNodes)
+	} else { // leaf is in the right subtree
+		idx = idx - int(math.Pow(2, float64(root.Height)))/2
+		copathNodes = append(copathNodes, root.Left.GetPk())
+		return CoPath(root.Right, idx, copathNodes)
+	}
+}
+
+func DeriveLeafKey(ekPath string, suk *ecdh.PublicKey) (*ecdh.PrivateKey, error) {
+	ek, err := keyutl.ReadPrivateEKFromFile(ekPath, keyutl.PEM)
+	if err != nil {
+		return nil, fmt.Errorf("can't read private key file: %v", err)
+	}
+
+	raw, err := proto.KeyExchange(ek, suk)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate the member's leaf key: %v", err)
+	}
+
+	leafKey, err := keyutl.UnmarshalPrivateX25519FromRaw(raw)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal the member's leaf key: %v", err)
+	}
+
+	return leafKey, nil
+}
+
+func PathNodeKeys(leafKey *ecdh.PrivateKey, copathKeys []*ecdh.PublicKey) ([]*ecdh.PrivateKey, error) {
+	pathKeys := make([]*ecdh.PrivateKey, 0)
+	pathKeys = append(pathKeys, leafKey)
+
+	// starting at the "bottom" of the copath and working up
+	for i := 0; i < len(copathKeys); i++ {
+		raw, err := pathKeys[i].ECDH(copathKeys[len(copathKeys)-i-1])
+		if err != nil {
+			return nil, fmt.Errorf("ECDH for node failed: %v", err)
+		}
+
+		key, err := keyutl.UnmarshalPrivateX25519FromRaw(raw)
+		if err != nil {
+			return nil, fmt.Errorf("can't unmarshal private x25519 key for node: %v", err)
+		}
+
+		pathKeys = append(pathKeys, key)
+	}
+
+	return pathKeys, nil
+}
+
+func MarshallTreeState(state *TreeState) *treejson {
+	publicTree, err := state.PublicTree.MarshalKeys()
+	if err != nil {
+		mu.Die("failed to marshal the public keys: %v", err)
+	}
+
+	sk, err := keyutl.MarshalPrivateIKToPEM(state.Sk)
+	if err != nil {
+		mu.Die("error marshaling private stage key: %v", err)
+	}
+
+	lk, err := keyutl.MarshalPrivateEKToPEM(state.Lk)
+	if err != nil {
+		mu.Die("error marshalling private leaf key: %v", err)
+	}
+	return &treejson{publicTree, sk, lk, state.IKeys}
+}
+
+func SaveTreeState(outStateFile string, state *TreeState) {
+	treeFile, err := os.Create(outStateFile)
+	if err != nil {
+		mu.Die("error creating out-state file %v: %v", outStateFile, err)
+	}
+	defer treeFile.Close()
+
+	enc := json.NewEncoder(treeFile)
+	treeJson := MarshallTreeState(state)
+	enc.Encode(treeJson)
 }

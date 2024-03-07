@@ -10,6 +10,13 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
+type Message struct {
+	IKeys    [][]byte
+	EKeys    [][]byte
+	Suk      []byte
+	TreeKeys [][]byte
+}
+
 const StageKeySize = 32
 
 func DHKeyGen() (*ecdh.PrivateKey, error) {
