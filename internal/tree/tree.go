@@ -27,7 +27,7 @@ type PublicNode struct {
 	Height int // a height of zero indicates a leaf node
 }
 
-type treejson struct {
+type treeJson struct {
 	PublicTree [][]byte
 	Sk         []byte
 	Lk         []byte
@@ -358,6 +358,7 @@ func DeriveLeafKey(ekPath string, suk *ecdh.PublicKey) (*ecdh.PrivateKey, error)
 	return leafKey, nil
 }
 
+// TODO: this goes into proto.go
 func PathNodeKeys(leafKey *ecdh.PrivateKey, copathKeys []*ecdh.PublicKey) ([]*ecdh.PrivateKey, error) {
 	pathKeys := make([]*ecdh.PrivateKey, 0)
 	pathKeys = append(pathKeys, leafKey)
@@ -380,7 +381,7 @@ func PathNodeKeys(leafKey *ecdh.PrivateKey, copathKeys []*ecdh.PublicKey) ([]*ec
 	return pathKeys, nil
 }
 
-func MarshallTreeState(state *TreeState) *treejson {
+func MarshallTreeState(state *TreeState) *treeJson {
 	publicTree, err := state.PublicTree.MarshalKeys()
 	if err != nil {
 		mu.Die("failed to marshal the public keys: %v", err)
@@ -395,7 +396,7 @@ func MarshallTreeState(state *TreeState) *treejson {
 	if err != nil {
 		mu.Die("error marshalling private leaf key: %v", err)
 	}
-	return &treejson{publicTree, sk, lk, state.IKeys}
+	return &treeJson{publicTree, sk, lk, state.IKeys}
 }
 
 func SaveTreeState(outStateFile string, state *TreeState) {
@@ -408,4 +409,47 @@ func SaveTreeState(outStateFile string, state *TreeState) {
 	enc := json.NewEncoder(treeFile)
 	treeJson := MarshallTreeState(state)
 	enc.Encode(treeJson)
+}
+
+func UnMarshallTreeState(tree *treeJson) *TreeState {
+	var err error
+	var treeState TreeState
+
+	treeState.IKeys = tree.IKeys
+
+	treeState.PublicTree, err = UnmarshalKeysToPublicTree(tree.PublicTree)
+	if err != nil {
+		mu.Die("error unmarshalling private tree from TREE_FILE", err)
+	}
+
+	treeState.Sk, err = keyutl.UnmarshalPrivateIKFromPEM(tree.Sk)
+	if err != nil {
+		mu.Die("error unmarshalling private stage key from TREE_FILE: %v", err)
+	}
+
+	treeState.Lk, err = keyutl.UnmarshalPrivateEKFromPEM(tree.Lk)
+	if err != nil {
+		mu.Die("error unmarshalling private leaf key from TREE_FILE: %v", err)
+	}
+
+	return &treeState
+}
+
+func ReadTreeState(treeStateFile string) *TreeState {
+	var tree treeJson
+
+	treeFile, err := os.Open(treeStateFile)
+	if err != nil {
+		mu.Die("error opening file %s", treeStateFile)
+	}
+
+	decoder := json.NewDecoder(treeFile)
+	err = decoder.Decode(&tree)
+	if err != nil {
+		mu.Die("error reading tree state from %s", treeStateFile)
+	}
+
+	defer treeFile.Close()
+
+	return UnMarshallTreeState(&tree)
 }

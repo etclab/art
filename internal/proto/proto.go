@@ -17,6 +17,11 @@ type Message struct {
 	TreeKeys [][]byte
 }
 
+type KeyUpdateMessage struct {
+	Idx            int
+	PathPublicKeys [][]byte
+}
+
 const StageKeySize = 32
 
 func DHKeyGen() (*ecdh.PrivateKey, error) {
