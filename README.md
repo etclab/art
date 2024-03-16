@@ -43,16 +43,16 @@ make clean
    ```
 3. For processing the setup message by another participant (participant here = bob, index = 2)
    ```
-   ./processmsg -setup ./4.conf.dir/setup.msg -pk ./cmd/setup_group/data/alice-ik-pub.pem 2 ./cmd/setup_group/data/bob-ek.pem bob_tree_state
+   ./process_setup_message -out-state bob-state.json 2 ./cmd/setup_group/data/bob-ek.pem ./cmd/setup_group/data/alice-ik-pub.pem 4.conf.dir/setup.msg
    ```
-4. Update Key: Cici updates her key
+4. Update Key: Cici updates her key (assuming Cici already has been setup as a member)
 
    ```
-   ./update_key -u cici_update_key 3 ./cmd/setup_group/data/cici-ek.pem cici_state
+   ./update_key -update-file cici_update_key 3 ./cmd/setup_group/data/cici-ek.pem cici-state.json
    ```
 
 5. Process Update Message: Bob applies the key update message sent by Cici in Step 4
 
    ```
-   ./process_update_message 2 ./cmd/setup_group/data/bob-ek.pem bob_state cici_update_key
+   ./process_update_message 2 ./cmd/setup_group/data/bob-ek.pem bob-state.json cici_update_key
    ```

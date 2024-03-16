@@ -390,12 +390,6 @@ func newGroupFromFile(configFile string) *group {
 		mu.Die("error: config file has zero entries")
 	}
 
-	// TODO: remove this limitation
-	if !mu.IsPowerOfTwo(uint(numMembers)) {
-		mu.Die("error: config file must have a power of two number of members"+
-			"but has %d", numMembers)
-	}
-
 	return g
 }
 
