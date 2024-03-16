@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"math"
 	"os"
 	"strconv"
 
@@ -94,43 +93,6 @@ func signMAC(sk ed25519.PrivateKey, msg proto.KeyUpdateMessage, macFile string) 
 	return nil
 }
 
-/* update the full tree with the new leaf and path keys */
-func updatePublicTree(pathKeys []*ecdh.PublicKey, root *tree.PublicNode,
-	idx int) *tree.PublicNode {
-	// height of 0 means we're at the leaf
-	if root.Height == 0 {
-		root.UpdatePk(pathKeys[0])
-		// copathNodes = append(copathNodes, root)
-		return root
-	}
-
-	// leaf is in the left subtree
-	if idx <= int(math.Pow(2, float64(root.Height)))/2 {
-		root.UpdatePk(pathKeys[len(pathKeys)-1])
-		root.Left = updatePublicTree(pathKeys[:len(pathKeys)-1], root.Left, idx)
-
-	} else { // leaf is in the right subtree
-		idx = idx - int(math.Pow(2, float64(root.Height)))/2
-		root.UpdatePk(pathKeys[len(pathKeys)-1])
-		root.Right = updatePublicTree(pathKeys[:len(pathKeys)-1], root.Right, idx)
-	}
-	return root
-}
-
-func updateCoPathNodes(index int, state *tree.TreeState) []*ecdh.PrivateKey {
-	// get the copath nodes
-	copathNodes := make([]*ecdh.PublicKey, 0)
-	copathNodes = tree.CoPath(state.PublicTree, index, copathNodes)
-
-	// with the leaf key, derive the private keys on the path up to the root
-	pathKeys, err := tree.PathNodeKeys(state.Lk, copathNodes)
-	if err != nil {
-		mu.Die("error deriving the new private path keys: %v", err)
-	}
-
-	return pathKeys
-}
-
 func getPublicKeys(pathKeys []*ecdh.PrivateKey) []*ecdh.PublicKey {
 	publicPathKeys := make([]*ecdh.PublicKey, 0, len(pathKeys))
 	for _, key := range pathKeys {
@@ -211,7 +173,7 @@ func updateKey(opts *options, state *tree.TreeState) {
 		mu.Die("error creating the new leaf key: %v", err)
 	}
 
-	pathKeys := updateCoPathNodes(opts.idx, state)
+	pathKeys := tree.UpdateCoPathNodes(opts.idx, state)
 	treeSecret := pathKeys[len(pathKeys)-1]
 
 	publicPathKeys := getPublicKeys(pathKeys)
@@ -221,7 +183,7 @@ func updateKey(opts *options, state *tree.TreeState) {
 	generateMAC(state.Sk, updateMsg, opts.macFile)
 
 	// replace the updated nodes in the full tree representation
-	state.PublicTree = updatePublicTree(publicPathKeys, state.PublicTree,
+	state.PublicTree = tree.UpdatePublicTree(publicPathKeys, state.PublicTree,
 		opts.idx)
 
 	deriveStageKey(state, treeSecret)

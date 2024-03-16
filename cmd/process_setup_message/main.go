@@ -67,8 +67,8 @@ type options struct {
 	setupMessageFile   string
 
 	// options
-	sigFile   string
-	stateFile string
+	sigFile       string
+	treeStateFile string
 }
 
 func verifyMessage(publicKeyPath, msgFile, sigFile string) {
@@ -175,7 +175,7 @@ func parseOptions() *options {
 
 	flag.Usage = printUsage
 	flag.StringVar(&opts.sigFile, "sig-file", "", "")
-	flag.StringVar(&opts.stateFile, "out-state", "state.json", "")
+	flag.StringVar(&opts.treeStateFile, "out-state", "state.json", "")
 	flag.Parse()
 
 	if flag.NArg() != 4 {
@@ -203,5 +203,5 @@ func main() {
 
 	processMessage(opts, &state)
 
-	tree.SaveTreeState(opts.stateFile, &state)
+	tree.SaveTreeState(opts.treeStateFile, &state)
 }

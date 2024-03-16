@@ -453,3 +453,40 @@ func ReadTreeState(treeStateFile string) *TreeState {
 
 	return UnMarshallTreeState(&tree)
 }
+
+// update the full tree with the new leaf and path keys
+func UpdatePublicTree(pathKeys []*ecdh.PublicKey, root *PublicNode,
+	idx int) *PublicNode {
+	// height of 0 means we're at the leaf
+	if root.Height == 0 {
+		root.UpdatePk(pathKeys[0])
+		// copathNodes = append(copathNodes, root)
+		return root
+	}
+
+	// leaf is in the left subtree
+	if idx <= int(math.Pow(2, float64(root.Height)))/2 {
+		root.UpdatePk(pathKeys[len(pathKeys)-1])
+		root.Left = UpdatePublicTree(pathKeys[:len(pathKeys)-1], root.Left, idx)
+
+	} else { // leaf is in the right subtree
+		idx = idx - int(math.Pow(2, float64(root.Height)))/2
+		root.UpdatePk(pathKeys[len(pathKeys)-1])
+		root.Right = UpdatePublicTree(pathKeys[:len(pathKeys)-1], root.Right, idx)
+	}
+	return root
+}
+
+func UpdateCoPathNodes(index int, state *TreeState) []*ecdh.PrivateKey {
+	// get the copath nodes
+	copathNodes := make([]*ecdh.PublicKey, 0)
+	copathNodes = CoPath(state.PublicTree, index, copathNodes)
+
+	// with the leaf key, derive the private keys on the path up to the root
+	pathKeys, err := PathNodeKeys(state.Lk, copathNodes)
+	if err != nil {
+		mu.Die("error deriving the new private path keys: %v", err)
+	}
+
+	return pathKeys
+}
