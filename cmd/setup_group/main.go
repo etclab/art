@@ -62,6 +62,10 @@ options:
     provided, the program sets out-dir to basename(CONFIG_FILE).dir.
     If the out-dir does not exist, the program creates it.
 
+  -out-state STATE_FILE
+    The file to output the node's state. If not provided, the default is 
+	state.json. 
+
   -msg-file MSG_FILE
     The message file. If omitted, the message is saved to file setup.msg
 
@@ -82,10 +86,11 @@ type options struct {
 	privIKFile string
 
 	// options
-	initiator string
-	outDir    string
-	msgFile   string
-	sigFile   string
+	initiator     string
+	outDir        string
+	msgFile       string
+	sigFile       string
+	treeStateFile string
 }
 
 type member struct {
@@ -224,21 +229,25 @@ func deriveStageKey(treeSecret *ecdh.PrivateKey, msg *proto.Message) []byte {
 	return stageKey
 }
 
-func (g *group) setup(opts *options) {
+func (g *group) setup(opts *options, state *tree.TreeState) {
 
 	suk := g.generateInitiatorKeys(opts.initiator)
 	leafKeys := g.generateLeafKeys(suk)
+	state.Lk = g.initiator.leafKey
 
 	treeSecret, treePublic := generateTree(leafKeys)
+	state.PublicTree = treePublic
 
 	secretBytes, _ := keyutl.MarshalPrivateEKToPEM(treeSecret)
 	fmt.Printf("Tree Secret:\n%v\n", string(secretBytes))
 
 	msg := g.createSetupMessage(suk.PublicKey(), treePublic)
 	g.saveSetupMessage(opts, msg)
+	state.IKeys = msg.IKeys
 
-	stageKey := deriveStageKey(treeSecret, msg)
-	fmt.Printf("Stage key: %v\n", stageKey)
+	state.Sk = deriveStageKey(treeSecret, msg)
+
+	fmt.Printf("Stage key: %v\n", state.Sk)
 }
 
 func (g *group) createSetupMessage(suk *ecdh.PublicKey,
@@ -301,8 +310,7 @@ func (g *group) saveSetupMessage(opts *options, msg *proto.Message) {
 		mu.Die("error: can't create out-dir: %v", err)
 	}
 
-	msgPath := filepath.Join(opts.outDir, opts.msgFile)
-	msgFile, err := os.Create(msgPath)
+	msgFile, err := os.Create(opts.msgFile)
 	if err != nil {
 		mu.Die("error creating message file: %v", err)
 	}
@@ -312,9 +320,8 @@ func (g *group) saveSetupMessage(opts *options, msg *proto.Message) {
 	msgFile.Close()
 
 	privIKFile := mu.ResolvePath(opts.privIKFile, opts.configFile)
-	sigFile := filepath.Join(opts.outDir, opts.sigFile)
 
-	signFile(msgPath, privIKFile, sigFile)
+	signFile(opts.msgFile, privIKFile, opts.sigFile)
 }
 
 func getNewMember(fields []string, configDir string) *member {
@@ -401,6 +408,7 @@ func parseOptions() *options {
 	flag.StringVar(&opts.outDir, "out-dir", "", "")
 	flag.StringVar(&opts.msgFile, "msg-file", "setup.msg", "")
 	flag.StringVar(&opts.sigFile, "sig-file", "", "")
+	flag.StringVar(&opts.treeStateFile, "out-state", "state.json", "")
 	flag.Parse()
 
 	if flag.NArg() != 2 {
@@ -418,15 +426,21 @@ func parseOptions() *options {
 		opts.sigFile = opts.msgFile + ".sig"
 	}
 
+	opts.msgFile = filepath.Join(opts.outDir, opts.msgFile)
+	opts.sigFile = filepath.Join(opts.outDir, opts.sigFile)
+	opts.treeStateFile = filepath.Join(opts.outDir, opts.treeStateFile)
+
 	return &opts
 }
 
 func main() {
 	opts := parseOptions()
+	var state tree.TreeState
 
 	g := newGroupFromFile(opts.configFile)
 	g.printMembers()
 
-	// TODO: save the tree state for initiator to a file?
-	g.setup(opts)
+	g.setup(opts, &state)
+
+	tree.SaveTreeState(opts.treeStateFile, &state)
 }

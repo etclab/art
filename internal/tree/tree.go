@@ -99,7 +99,6 @@ func (node *Node) PublicKeys() *PublicNode {
 	right := node.right.PublicKeys()
 	pk := node.sk.PublicKey()
 
-
 	return &PublicNode{pk: pk, Left: left, Right: right}
 }
 
