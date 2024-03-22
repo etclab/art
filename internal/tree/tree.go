@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 
+	"art/internal/jsonutl"
 	"art/internal/keyutl"
 	"art/internal/mu"
 	"art/internal/proto"
@@ -30,19 +31,19 @@ type PublicNode struct {
 }
 
 type treeJson struct {
-	PublicTree [][]byte
-	Sk         []byte
-	Lk         []byte
-	IKeys      [][]byte
+	PublicTree [][]byte `json:"publicTree"`
+	Sk         []byte   `json:"sk"`
+	Lk         []byte   `json:"lk"`
+	IKeys      [][]byte `json:"iKeys"`
 }
 
 type TreeState struct {
 	// TODO: maybe add a tracker for the stage number to ensure updates
 	// are processed in the correct order
-	PublicTree *PublicNode        `json:"publicTree"`
-	Sk         ed25519.PrivateKey `json:"stageKey"`
-	Lk         *ecdh.PrivateKey   `json:"leafKey"`
-	IKeys      [][]byte           `json:"identityKeys"`
+	PublicTree *PublicNode
+	Sk         ed25519.PrivateKey
+	Lk         *ecdh.PrivateKey
+	IKeys      [][]byte
 }
 
 // leftSubtreeSize computes the number of leaves in the leftsubtree of a
@@ -324,29 +325,6 @@ func DeriveLeafKey(ekPath string, suk *ecdh.PublicKey) (*ecdh.PrivateKey, error)
 	return leafKey, nil
 }
 
-// TODO: this goes into proto.go
-func PathNodeKeys(leafKey *ecdh.PrivateKey, copathKeys []*ecdh.PublicKey) ([]*ecdh.PrivateKey, error) {
-	pathKeys := make([]*ecdh.PrivateKey, 0)
-	pathKeys = append(pathKeys, leafKey)
-
-	// starting at the "bottom" of the copath and working up
-	for i := 0; i < len(copathKeys); i++ {
-		raw, err := pathKeys[i].ECDH(copathKeys[len(copathKeys)-i-1])
-		if err != nil {
-			return nil, fmt.Errorf("ECDH for node failed: %v", err)
-		}
-
-		key, err := keyutl.UnmarshalPrivateX25519FromRaw(raw)
-		if err != nil {
-			return nil, fmt.Errorf("can't unmarshal private x25519 key for node: %v", err)
-		}
-
-		pathKeys = append(pathKeys, key)
-	}
-
-	return pathKeys, nil
-}
-
 func MarshallTreeState(state *TreeState) *treeJson {
 	publicTree, err := state.PublicTree.MarshalKeys()
 	if err != nil {
@@ -366,15 +344,8 @@ func MarshallTreeState(state *TreeState) *treeJson {
 }
 
 func SaveTreeState(outStateFile string, state *TreeState) {
-	treeFile, err := os.Create(outStateFile)
-	if err != nil {
-		mu.Die("error creating out-state file %v: %v", outStateFile, err)
-	}
-	defer treeFile.Close()
-
-	enc := json.NewEncoder(treeFile)
 	treeJson := MarshallTreeState(state)
-	enc.Encode(treeJson)
+	jsonutl.Encode(outStateFile, treeJson)
 }
 
 func UnMarshallTreeState(tree *treeJson) *TreeState {
@@ -449,7 +420,7 @@ func UpdateCoPathNodes(index int, state *TreeState) []*ecdh.PrivateKey {
 	copathNodes = CoPath(state.PublicTree, index, copathNodes)
 
 	// with the leaf key, derive the private keys on the path up to the root
-	pathKeys, err := PathNodeKeys(state.Lk, copathNodes)
+	pathKeys, err := proto.PathNodeKeys(state.Lk, copathNodes)
 	if err != nil {
 		mu.Die("error deriving the new private path keys: %v", err)
 	}

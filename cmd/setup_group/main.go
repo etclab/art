@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"crypto/ecdh"
 	"crypto/ed25519"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -12,6 +11,7 @@ import (
 	"strings"
 
 	"art/internal/cryptutl"
+	"art/internal/jsonutl"
 	"art/internal/keyutl"
 	"art/internal/mu"
 	"art/internal/proto"
@@ -310,14 +310,7 @@ func (g *group) saveSetupMessage(opts *options, msg *proto.Message) {
 		mu.Die("error: can't create out-dir: %v", err)
 	}
 
-	msgFile, err := os.Create(opts.msgFile)
-	if err != nil {
-		mu.Die("error creating message file: %v", err)
-	}
-
-	enc := json.NewEncoder(msgFile)
-	enc.Encode(msg)
-	msgFile.Close()
+	jsonutl.Encode(opts.msgFile, msg)
 
 	privIKFile := mu.ResolvePath(opts.privIKFile, opts.configFile)
 

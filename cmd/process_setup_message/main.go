@@ -129,7 +129,7 @@ func deriveTreeKey(state *tree.TreeState, index int) *ecdh.PrivateKey {
 	copathNodes = tree.CoPath(state.PublicTree, index, copathNodes)
 
 	// with the leaf key, derive the private keys on the path up to the root
-	pathKeys, err := tree.PathNodeKeys(state.Lk, copathNodes)
+	pathKeys, err := proto.PathNodeKeys(state.Lk, copathNodes)
 	if err != nil {
 		mu.Die("error deriving the private path keys: %v", err)
 	}

@@ -1,20 +1,22 @@
 package proto
 
 import (
+	"art/internal/keyutl"
 	"bytes"
 	"crypto/ecdh"
 	"crypto/rand"
 	"crypto/sha256"
+	"fmt"
 	"io"
 
 	"golang.org/x/crypto/hkdf"
 )
 
 type Message struct {
-	IKeys    [][]byte
-	EKeys    [][]byte
-	Suk      []byte
-	TreeKeys [][]byte
+	IKeys    [][]byte `json:"iKeys"`
+	EKeys    [][]byte `json:"eKeys"`
+	Suk      []byte   `json:"suk"`
+	TreeKeys [][]byte `json:"treeKeys"`
 }
 
 type KeyUpdateMessage struct {
@@ -72,4 +74,27 @@ func DeriveStageKey(skInfo *StageKeyInfo) ([]byte, error) {
 	}
 
 	return stageKey, nil
+}
+
+func PathNodeKeys(leafKey *ecdh.PrivateKey, copathKeys []*ecdh.PublicKey) (
+	[]*ecdh.PrivateKey, error) {
+	pathKeys := make([]*ecdh.PrivateKey, 0)
+	pathKeys = append(pathKeys, leafKey)
+
+	// starting at the "bottom" of the copath and working up
+	for i := 0; i < len(copathKeys); i++ {
+		raw, err := pathKeys[i].ECDH(copathKeys[len(copathKeys)-i-1])
+		if err != nil {
+			return nil, fmt.Errorf("ECDH for node failed: %v", err)
+		}
+
+		key, err := keyutl.UnmarshalPrivateX25519FromRaw(raw)
+		if err != nil {
+			return nil, fmt.Errorf("can't unmarshal private x25519 key for node: %v", err)
+		}
+
+		pathKeys = append(pathKeys, key)
+	}
+
+	return pathKeys, nil
 }
