@@ -16,9 +16,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/syslab-wm/art"
 	"github.com/syslab-wm/art/internal/keyutl"
-	"github.com/syslab-wm/art/internal/proto"
-	"github.com/syslab-wm/art/internal/tree"
 	"github.com/syslab-wm/mu"
 
 	"golang.org/x/crypto/hkdf"
@@ -116,7 +115,7 @@ type stageKeyInfo struct {
 
 type treeState struct {
 	// maybe add a tracker for the stage number to ensure updates are processed in the correct order
-	publicTree *tree.PublicNode
+	publicTree *art.PublicNode
 	sk         ed25519.PrivateKey
 	lk         *ecdh.PrivateKey
 	ikeys      [][]byte
@@ -209,7 +208,7 @@ func processTreeState(opts *options, state *treeState) {
 
 	// converting the []byte values into the tree state values
 	state.ikeys = treejson.Ikeys
-	state.publicTree, err = tree.UnmarshalKeysToPublicTree(treejson.PublicTree)
+	state.publicTree, err = art.UnmarshalKeysToPublicTree(treejson.PublicTree)
 	if err != nil {
 		mu.Fatalf("error unmarshaling private tree from TREE_FILE", err)
 	}
@@ -286,7 +285,7 @@ func deriveStageKey(tk *ecdh.PrivateKey, stageInfo *stageKeyInfo) ed25519.Privat
 }
 
 // TODO: move this to internal/tree/tree.go
-func copath(root *tree.PublicNode, idx int, copathNodes []*ecdh.PublicKey) []*ecdh.PublicKey {
+func copath(root *art.PublicNode, idx int, copathNodes []*ecdh.PublicKey) []*ecdh.PublicKey {
 	// if len(copathNodes) == 0 {
 	// 	copathNodes = append(copathNodes, root.GetPk())
 	// }
@@ -331,7 +330,7 @@ func pathNodeKeys(leafKey *ecdh.PrivateKey, copathKeys []*ecdh.PublicKey) ([]*ec
 }
 
 /* updating the full tree with the new leaf and path keys */
-func updatePublicTree(pathKeys []*ecdh.PublicKey, root *tree.PublicNode, idx int) *tree.PublicNode {
+func updatePublicTree(pathKeys []*ecdh.PublicKey, root *art.PublicNode, idx int) *art.PublicNode {
 	// height of 0 means we're at the leaf
 	if root.Height == 0 {
 		root.UpdatePk(pathKeys[0])
@@ -358,7 +357,7 @@ func deriveLeafKey(ekPath string, suk *ecdh.PublicKey) (*ecdh.PrivateKey, error)
 		return nil, fmt.Errorf("can't read private key file: %v", err)
 	}
 
-	raw, err := proto.KeyExchange(ek, suk)
+	raw, err := art.KeyExchange(ek, suk)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate the member's leaf key: %v", err)
 	}
@@ -412,7 +411,7 @@ func processMessage(opts *options, state *treeState) ed25519.PrivateKey {
 	}
 
 	// unmarshalling the public tree
-	state.publicTree, err = tree.UnmarshalKeysToPublicTree(m.TreeKeys)
+	state.publicTree, err = art.UnmarshalKeysToPublicTree(m.TreeKeys)
 	if err != nil {
 		mu.Fatalf("error unmarshalling the public tree keys: %v", err)
 	}
@@ -506,7 +505,7 @@ func processUpdateMessage(opts *options, updateMsg string, state *treeState) ed2
 func updateKey(opts *options, state *treeState) ed25519.PrivateKey {
 	// create a new leaf key
 	var err error
-	state.lk, err = proto.DHKeyGen()
+	state.lk, err = art.DHKeyGen()
 	if err != nil {
 		mu.Fatalf("error creating the new leaf key: %v", err)
 	}

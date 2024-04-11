@@ -13,9 +13,8 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/syslab-wm/art"
 	"github.com/syslab-wm/art/internal/keyutl"
-	"github.com/syslab-wm/art/internal/proto"
-	"github.com/syslab-wm/art/internal/tree"
 	"github.com/syslab-wm/mu"
 )
 
@@ -71,7 +70,7 @@ type options struct {
 	macFile string
 }
 
-func decodeMessage(file *os.File, m *proto.KeyUpdateMessage) {
+func decodeMessage(file *os.File, m *art.KeyUpdateMessage) {
 	dec := json.NewDecoder(file)
 	err := dec.Decode(&m)
 	if err != nil {
@@ -79,7 +78,7 @@ func decodeMessage(file *os.File, m *proto.KeyUpdateMessage) {
 	}
 }
 
-func readUpdateMessage(msgFilePath string, updateMsg *proto.KeyUpdateMessage) {
+func readUpdateMessage(msgFilePath string, updateMsg *art.KeyUpdateMessage) {
 	msgFile, err := os.Open(msgFilePath)
 	if err != nil {
 		mu.Fatalf("error opening message file:", err)
@@ -88,7 +87,7 @@ func readUpdateMessage(msgFilePath string, updateMsg *proto.KeyUpdateMessage) {
 	decodeMessage(msgFile, updateMsg)
 }
 
-func verifyMAC(sk ed25519.PrivateKey, msg proto.KeyUpdateMessage,
+func verifyMAC(sk ed25519.PrivateKey, msg art.KeyUpdateMessage,
 	macFile string) (bool, error) {
 	// convert the update message contents into a byte array
 	bs := make([]byte, 4)
@@ -111,7 +110,7 @@ func verifyMAC(sk ed25519.PrivateKey, msg proto.KeyUpdateMessage,
 }
 
 // verify the message signature with the current stage key
-func verifyUpdateMessage(sk ed25519.PrivateKey, uMsg proto.KeyUpdateMessage,
+func verifyUpdateMessage(sk ed25519.PrivateKey, uMsg art.KeyUpdateMessage,
 	macFile string) {
 	valid, err := verifyMAC(sk, uMsg, macFile)
 	if err != nil {
@@ -134,27 +133,27 @@ func unmarshallPublicKeys(pathKeys [][]byte) []*ecdh.PublicKey {
 	return updatedPathKeys
 }
 
-func deriveStageKey(state *tree.TreeState, treeSecret *ecdh.PrivateKey) {
+func deriveStageKey(state *art.TreeState, treeSecret *ecdh.PrivateKey) {
 	// TODO: this is repeated
 	treeKeys, err := state.PublicTree.MarshalKeys()
 	if err != nil {
 		mu.Fatalf("failed to marshal the updated tree's public keys: %v", err)
 	}
 
-	stageInfo := proto.StageKeyInfo{
+	stageInfo := art.StageKeyInfo{
 		PrevStageKey:  state.Sk,
 		TreeSecretKey: treeSecret.Bytes(),
 		IKeys:         state.IKeys,
 		TreeKeys:      treeKeys,
 	}
-	state.Sk, err = proto.DeriveStageKey(&stageInfo)
+	state.Sk, err = art.DeriveStageKey(&stageInfo)
 	if err != nil {
 		mu.Fatalf("DeriveStageKey failed: %v", err)
 	}
 }
 
-func processUpdateMessage(opts *options, state *tree.TreeState) {
-	var updateMessage proto.KeyUpdateMessage
+func processUpdateMessage(opts *options, state *art.TreeState) {
+	var updateMessage art.KeyUpdateMessage
 
 	readUpdateMessage(opts.updateMessageFile, &updateMessage)
 	verifyUpdateMessage(state.Sk, updateMessage, opts.macFile)
@@ -162,10 +161,10 @@ func processUpdateMessage(opts *options, state *tree.TreeState) {
 	updatedPathKeys := unmarshallPublicKeys(updateMessage.PathPublicKeys)
 
 	// replace the updated nodes in the full tree representation
-	state.PublicTree = tree.UpdatePublicTree(updatedPathKeys, state.PublicTree,
+	state.PublicTree = art.UpdatePublicTree(updatedPathKeys, state.PublicTree,
 		updateMessage.Idx)
 
-	pathKeys := tree.UpdateCoPathNodes(opts.idx, state)
+	pathKeys := art.UpdateCoPathNodes(opts.idx, state)
 	treeSecret := pathKeys[len(pathKeys)-1]
 
 	deriveStageKey(state, treeSecret)
@@ -201,9 +200,9 @@ func parseOptions() *options {
 func main() {
 	opts := parseOptions()
 
-	state := tree.ReadTreeState(opts.treeStateFile)
+	state := art.ReadTreeState(opts.treeStateFile)
 
 	processUpdateMessage(opts, state)
 
-	tree.SaveTreeState(opts.treeStateFile, state)
+	art.SaveTreeState(opts.treeStateFile, state)
 }

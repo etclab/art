@@ -1,4 +1,4 @@
-package tree
+package art
 
 import (
 	"crypto/ecdh"
@@ -10,7 +10,6 @@ import (
 
 	"github.com/syslab-wm/art/internal/jsonutl"
 	"github.com/syslab-wm/art/internal/keyutl"
-	"github.com/syslab-wm/art/internal/proto"
 	"github.com/syslab-wm/mu"
 )
 
@@ -312,7 +311,7 @@ func DeriveLeafKey(ekPath string, suk *ecdh.PublicKey) (*ecdh.PrivateKey, error)
 		return nil, fmt.Errorf("can't read private key file: %v", err)
 	}
 
-	raw, err := proto.KeyExchange(ek, suk)
+	raw, err := KeyExchange(ek, suk)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate the member's leaf key: %v", err)
 	}
@@ -420,7 +419,7 @@ func UpdateCoPathNodes(index int, state *TreeState) []*ecdh.PrivateKey {
 	copathNodes = CoPath(state.PublicTree, index, copathNodes)
 
 	// with the leaf key, derive the private keys on the path up to the root
-	pathKeys, err := proto.PathNodeKeys(state.Lk, copathNodes)
+	pathKeys, err := PathNodeKeys(state.Lk, copathNodes)
 	if err != nil {
 		mu.Fatalf("error deriving the new private path keys: %v", err)
 	}

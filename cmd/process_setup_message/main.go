@@ -8,10 +8,9 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/syslab-wm/art"
 	"github.com/syslab-wm/art/internal/cryptutl"
 	"github.com/syslab-wm/art/internal/keyutl"
-	"github.com/syslab-wm/art/internal/proto"
-	"github.com/syslab-wm/art/internal/tree"
 	"github.com/syslab-wm/mu"
 )
 
@@ -81,7 +80,7 @@ func verifyMessage(publicKeyPath, msgFile, sigFile string) {
 	}
 }
 
-func decodeMessage(file *os.File, m *proto.Message) {
+func decodeMessage(file *os.File, m *art.Message) {
 	dec := json.NewDecoder(file)
 	err := dec.Decode(&m)
 	if err != nil {
@@ -89,7 +88,7 @@ func decodeMessage(file *os.File, m *proto.Message) {
 	}
 }
 
-func readMessage(msgFilePath string, m *proto.Message) {
+func readMessage(msgFilePath string, m *art.Message) {
 	msgFile, err := os.Open(msgFilePath)
 	if err != nil {
 		mu.Fatalf("error opening message file:", err)
@@ -98,7 +97,7 @@ func readMessage(msgFilePath string, m *proto.Message) {
 	decodeMessage(msgFile, m)
 }
 
-func getSetupKey(m *proto.Message) *ecdh.PublicKey {
+func getSetupKey(m *art.Message) *ecdh.PublicKey {
 	suk, err := keyutl.UnmarshalPublicEKFromPEM(m.Suk)
 	if err != nil {
 		mu.Fatalf("failed to unmarshal public SUK")
@@ -106,8 +105,8 @@ func getSetupKey(m *proto.Message) *ecdh.PublicKey {
 	return suk
 }
 
-func getPublicTree(m *proto.Message) *tree.PublicNode {
-	tree, err := tree.UnmarshalKeysToPublicTree(m.TreeKeys)
+func getPublicTree(m *art.Message) *art.PublicNode {
+	tree, err := art.UnmarshalKeysToPublicTree(m.TreeKeys)
 	if err != nil {
 		mu.Fatalf("error unmarshalling the public tree keys: %v", err)
 	}
@@ -116,20 +115,20 @@ func getPublicTree(m *proto.Message) *tree.PublicNode {
 
 // derive the member's private leaf key
 func deriveLeafKey(privKeyFile string, setupKey *ecdh.PublicKey) *ecdh.PrivateKey {
-	leafKey, err := tree.DeriveLeafKey(privKeyFile, setupKey)
+	leafKey, err := art.DeriveLeafKey(privKeyFile, setupKey)
 	if err != nil {
 		mu.Fatalf("error deriving the private leaf key: %v", err)
 	}
 	return leafKey
 }
 
-func deriveTreeKey(state *tree.TreeState, index int) *ecdh.PrivateKey {
+func deriveTreeKey(state *art.TreeState, index int) *ecdh.PrivateKey {
 	// find the nodes on the copath
 	copathNodes := make([]*ecdh.PublicKey, 0)
-	copathNodes = tree.CoPath(state.PublicTree, index, copathNodes)
+	copathNodes = art.CoPath(state.PublicTree, index, copathNodes)
 
 	// with the leaf key, derive the private keys on the path up to the root
-	pathKeys, err := proto.PathNodeKeys(state.Lk, copathNodes)
+	pathKeys, err := art.PathNodeKeys(state.Lk, copathNodes)
 	if err != nil {
 		mu.Fatalf("error deriving the private path keys: %v", err)
 	}
@@ -138,14 +137,14 @@ func deriveTreeKey(state *tree.TreeState, index int) *ecdh.PrivateKey {
 	return pathKeys[len(pathKeys)-1]
 }
 
-func deriveStageKey(treeKey *ecdh.PrivateKey, m *proto.Message) []byte {
-	stageInfo := proto.StageKeyInfo{
-		PrevStageKey:  make([]byte, proto.StageKeySize),
+func deriveStageKey(treeKey *ecdh.PrivateKey, m *art.Message) []byte {
+	stageInfo := art.StageKeyInfo{
+		PrevStageKey:  make([]byte, art.StageKeySize),
 		TreeSecretKey: treeKey.Bytes(),
 		IKeys:         m.IKeys,
 		TreeKeys:      m.TreeKeys,
 	}
-	stageKey, err := proto.DeriveStageKey(&stageInfo)
+	stageKey, err := art.DeriveStageKey(&stageInfo)
 	if err != nil {
 		mu.Fatalf("failed to derive the stage key: %v", err)
 	}
@@ -153,8 +152,8 @@ func deriveStageKey(treeKey *ecdh.PrivateKey, m *proto.Message) []byte {
 	return stageKey
 }
 
-func processMessage(opts *options, state *tree.TreeState) {
-	var m proto.Message
+func processMessage(opts *options, state *art.TreeState) {
+	var m art.Message
 
 	verifyMessage(opts.initiatorPubIKFile, opts.setupMessageFile, opts.sigFile)
 	readMessage(opts.setupMessageFile, &m)
@@ -199,9 +198,9 @@ func parseOptions() *options {
 
 func main() {
 	opts := parseOptions()
-	var state tree.TreeState
+	var state art.TreeState
 
 	processMessage(opts, &state)
 
-	tree.SaveTreeState(opts.treeStateFile, &state)
+	art.SaveTreeState(opts.treeStateFile, &state)
 }

@@ -10,11 +10,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/syslab-wm/art"
 	"github.com/syslab-wm/art/internal/cryptutl"
 	"github.com/syslab-wm/art/internal/jsonutl"
 	"github.com/syslab-wm/art/internal/keyutl"
-	"github.com/syslab-wm/art/internal/proto"
-	"github.com/syslab-wm/art/internal/tree"
 	"github.com/syslab-wm/mu"
 )
 
@@ -170,7 +169,7 @@ func (g *group) generateLeafKeys(setupKey *ecdh.PrivateKey) []*ecdh.PrivateKey {
 			continue
 		}
 
-		raw, err := proto.KeyExchange(setupKey, member.pubEK)
+		raw, err := art.KeyExchange(setupKey, member.pubEK)
 		if err != nil {
 			mu.Fatalf("failed to generate leafKey")
 		}
@@ -188,12 +187,12 @@ func (g *group) generateInitiatorKeys(initiator string) *ecdh.PrivateKey {
 	var err error
 
 	g.setInitiator(initiator)
-	g.initiator.leafKey, err = proto.DHKeyGen()
+	g.initiator.leafKey, err = art.DHKeyGen()
 	if err != nil {
 		mu.Fatalf("failed to generate initiator's leaf key: %v", err)
 	}
 
-	setupKey, err := proto.KeyExchangeKeyGen()
+	setupKey, err := art.KeyExchangeKeyGen()
 	if err != nil {
 		mu.Fatalf("failed to generate the setup key (suk): %v", err)
 	}
@@ -202,8 +201,8 @@ func (g *group) generateInitiatorKeys(initiator string) *ecdh.PrivateKey {
 }
 
 func generateTree(leafKeys []*ecdh.PrivateKey) (*ecdh.PrivateKey,
-	*tree.PublicNode) {
-	treeRoot, err := tree.CreateTree(leafKeys)
+	*art.PublicNode) {
+	treeRoot, err := art.CreateTree(leafKeys)
 	if err != nil {
 		mu.Fatalf("failed to create ART tree: %v", err)
 	}
@@ -214,14 +213,14 @@ func generateTree(leafKeys []*ecdh.PrivateKey) (*ecdh.PrivateKey,
 	return treeSecret, treePublic
 }
 
-func deriveStageKey(treeSecret *ecdh.PrivateKey, msg *proto.Message) []byte {
-	stageInfo := proto.StageKeyInfo{
-		PrevStageKey:  make([]byte, proto.StageKeySize),
+func deriveStageKey(treeSecret *ecdh.PrivateKey, msg *art.Message) []byte {
+	stageInfo := art.StageKeyInfo{
+		PrevStageKey:  make([]byte, art.StageKeySize),
 		TreeSecretKey: treeSecret.Bytes(),
 		IKeys:         msg.IKeys,
 		TreeKeys:      msg.TreeKeys,
 	}
-	stageKey, err := proto.DeriveStageKey(&stageInfo)
+	stageKey, err := art.DeriveStageKey(&stageInfo)
 	if err != nil {
 		mu.Fatalf("DeriveStageKey failed: %v", err)
 	}
@@ -229,7 +228,7 @@ func deriveStageKey(treeSecret *ecdh.PrivateKey, msg *proto.Message) []byte {
 	return stageKey
 }
 
-func (g *group) setup(opts *options, state *tree.TreeState) {
+func (g *group) setup(opts *options, state *art.TreeState) {
 
 	suk := g.generateInitiatorKeys(opts.initiator)
 	leafKeys := g.generateLeafKeys(suk)
@@ -251,7 +250,7 @@ func (g *group) setup(opts *options, state *tree.TreeState) {
 }
 
 func (g *group) createSetupMessage(suk *ecdh.PublicKey,
-	treePublic *tree.PublicNode) *proto.Message {
+	treePublic *art.PublicNode) *art.Message {
 	// marshall identity keys, ephemeral keys, suk and tree public keys
 	marshalledEKS := make([][]byte, 0, len(g.members))
 	marshalledIKS := make([][]byte, 0, len(g.members))
@@ -279,7 +278,7 @@ func (g *group) createSetupMessage(suk *ecdh.PublicKey,
 	if err != nil {
 		mu.Fatalf("failed to marshal the tree's public keys: %v", err)
 	}
-	msg := proto.Message{
+	msg := art.Message{
 		IKeys:    marshalledIKS,
 		EKeys:    marshalledEKS,
 		Suk:      marshalledSuk,
@@ -314,7 +313,7 @@ func resolvePath(rel, start string) string {
 	return filepath.Join(dir, file)
 }
 
-func (g *group) saveSetupMessage(opts *options, msg *proto.Message) {
+func (g *group) saveSetupMessage(opts *options, msg *art.Message) {
 
 	err := os.MkdirAll(opts.outDir, 0750)
 	if err != nil {
@@ -439,12 +438,12 @@ func parseOptions() *options {
 
 func main() {
 	opts := parseOptions()
-	var state tree.TreeState
+	var state art.TreeState
 
 	g := newGroupFromFile(opts.configFile)
 	g.printMembers()
 
 	g.setup(opts, &state)
 
-	tree.SaveTreeState(opts.treeStateFile, &state)
+	art.SaveTreeState(opts.treeStateFile, &state)
 }
