@@ -61,12 +61,15 @@ func (skInfo *StageKeyInfo) GetInfo() []byte {
 	return bytes.Join(skInfo.IKeys, []byte(""))
 }
 
+//
+
+// prev sk, current tk, IDs, Public Tree
 func DeriveStageKey(skInfo *StageKeyInfo) ([]byte, error) {
 	hash := sha256.New
-	ikm := skInfo.GetIKM()
-	info := skInfo.GetInfo()
+	ikm := skInfo.GetIKM()   // HKDF secret
+	info := skInfo.GetInfo() // HKDF info
 
-	hkdf := hkdf.New(hash, ikm, nil, info)
+	hkdf := hkdf.New(hash, ikm, nil, info) // nil salt
 	stageKey := make([]byte, StageKeySize)
 	_, err := io.ReadFull(hkdf, stageKey)
 	if err != nil {

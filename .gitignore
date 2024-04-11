@@ -20,15 +20,19 @@
 # Go workspace file
 go.work
 
-*.pem
 
+# tools that we build
+genpkey
+/groupsetup
+/pkeyutl
+/process_setup_message
+/process_update_message
+/processmsg
+/setup_group
+/update_key
+
+# miscellaneous, temporary configuration that we may create when running
+# the tools
+*.pem
 4.conf.dir
 *_tree_state
-genpkey
-groupsetup
-pkeyutl
-process_setup_message
-process_update_message
-processmsg
-setup_group
-update_key
