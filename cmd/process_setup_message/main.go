@@ -8,11 +8,11 @@ import (
 	"os"
 	"strconv"
 
-	"art/internal/cryptutl"
-	"art/internal/keyutl"
-	"art/internal/mu"
-	"art/internal/proto"
-	"art/internal/tree"
+	"github.com/syslab-wm/art/internal/cryptutl"
+	"github.com/syslab-wm/art/internal/keyutl"
+	"github.com/syslab-wm/art/internal/proto"
+	"github.com/syslab-wm/art/internal/tree"
+	"github.com/syslab-wm/mu"
 )
 
 const shortUsage = `Usage: process_setup_message [options] INDEX PRIV_EK_FILE \ 
@@ -74,10 +74,10 @@ type options struct {
 func verifyMessage(publicKeyPath, msgFile, sigFile string) {
 	valid, err := cryptutl.VerifySignature(publicKeyPath, msgFile, sigFile)
 	if err != nil {
-		mu.Die("error: %v", err)
+		mu.Fatalf("error: %v", err)
 	}
 	if !valid {
-		mu.Die("error: message signature verification failed for %v", msgFile)
+		mu.Fatalf("error: message signature verification failed for %v", msgFile)
 	}
 }
 
@@ -85,14 +85,14 @@ func decodeMessage(file *os.File, m *proto.Message) {
 	dec := json.NewDecoder(file)
 	err := dec.Decode(&m)
 	if err != nil {
-		mu.Die("error decoding message from file:", err)
+		mu.Fatalf("error decoding message from file:", err)
 	}
 }
 
 func readMessage(msgFilePath string, m *proto.Message) {
 	msgFile, err := os.Open(msgFilePath)
 	if err != nil {
-		mu.Die("error opening message file:", err)
+		mu.Fatalf("error opening message file:", err)
 	}
 	defer msgFile.Close()
 	decodeMessage(msgFile, m)
@@ -101,7 +101,7 @@ func readMessage(msgFilePath string, m *proto.Message) {
 func getSetupKey(m *proto.Message) *ecdh.PublicKey {
 	suk, err := keyutl.UnmarshalPublicEKFromPEM(m.Suk)
 	if err != nil {
-		mu.Die("failed to unmarshal public SUK")
+		mu.Fatalf("failed to unmarshal public SUK")
 	}
 	return suk
 }
@@ -109,7 +109,7 @@ func getSetupKey(m *proto.Message) *ecdh.PublicKey {
 func getPublicTree(m *proto.Message) *tree.PublicNode {
 	tree, err := tree.UnmarshalKeysToPublicTree(m.TreeKeys)
 	if err != nil {
-		mu.Die("error unmarshalling the public tree keys: %v", err)
+		mu.Fatalf("error unmarshalling the public tree keys: %v", err)
 	}
 	return tree
 }
@@ -118,7 +118,7 @@ func getPublicTree(m *proto.Message) *tree.PublicNode {
 func deriveLeafKey(privKeyFile string, setupKey *ecdh.PublicKey) *ecdh.PrivateKey {
 	leafKey, err := tree.DeriveLeafKey(privKeyFile, setupKey)
 	if err != nil {
-		mu.Die("error deriving the private leaf key: %v", err)
+		mu.Fatalf("error deriving the private leaf key: %v", err)
 	}
 	return leafKey
 }
@@ -131,7 +131,7 @@ func deriveTreeKey(state *tree.TreeState, index int) *ecdh.PrivateKey {
 	// with the leaf key, derive the private keys on the path up to the root
 	pathKeys, err := proto.PathNodeKeys(state.Lk, copathNodes)
 	if err != nil {
-		mu.Die("error deriving the private path keys: %v", err)
+		mu.Fatalf("error deriving the private path keys: %v", err)
 	}
 
 	// the initial tree key is the last key in pathKeys
@@ -147,7 +147,7 @@ func deriveStageKey(treeKey *ecdh.PrivateKey, m *proto.Message) []byte {
 	}
 	stageKey, err := proto.DeriveStageKey(&stageInfo)
 	if err != nil {
-		mu.Die("failed to derive the stage key: %v", err)
+		mu.Fatalf("failed to derive the stage key: %v", err)
 	}
 
 	return stageKey
@@ -179,12 +179,12 @@ func parseOptions() *options {
 	flag.Parse()
 
 	if flag.NArg() != 4 {
-		mu.Die(shortUsage)
+		mu.Fatalf(shortUsage)
 	}
 
 	opts.index, err = strconv.Atoi(flag.Arg(0))
 	if err != nil {
-		mu.Die("error converting positional argument INDEX to int: %v", err)
+		mu.Fatalf("error converting positional argument INDEX to int: %v", err)
 	}
 	opts.privEKFile = flag.Arg(1)
 	opts.initiatorPubIKFile = flag.Arg(2)

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 
-	"art/internal/keyutl"
-	"art/internal/mu"
+	"github.com/syslab-wm/art/internal/keyutl"
+	"github.com/syslab-wm/mu"
 )
 
 const shortUsage = "Usage: pkeyutl [options] MSGFILE"
@@ -118,28 +118,28 @@ func parseOptions() *Options {
 	flag.Parse()
 
 	if !opts.sign && !opts.verify {
-		mu.Die("error: must specify -sign or -verify")
+		mu.Fatalf("error: must specify -sign or -verify")
 	}
 
 	if opts.sign && opts.verify {
-		mu.Die("error: can't specify both -sign and -verify")
+		mu.Fatalf("error: can't specify both -sign and -verify")
 	}
 
 	opts.encoding, err = keyutl.StringToKeyEncoding(opts.keyform)
 	if err != nil {
-		mu.Die("%v", err)
+		mu.Fatalf("%v", err)
 	}
 
 	if opts.key == "" {
-		mu.Die("error: must specify -key")
+		mu.Fatalf("error: must specify -key")
 	}
 
 	if opts.sigfile == "" {
-		mu.Die("error: must specify -sigfile")
+		mu.Fatalf("error: must specify -sigfile")
 	}
 
 	if flag.NArg() != 1 {
-		mu.Die(shortUsage)
+		mu.Fatalf(shortUsage)
 	}
 	opts.msgPath = flag.Arg(0)
 
@@ -154,7 +154,7 @@ func main() {
 
 	msgData, err := os.ReadFile(opts.msgPath)
 	if err != nil {
-		mu.Die("error: can't read message file: %v", err)
+		mu.Fatalf("error: can't read message file: %v", err)
 	}
 
 	if opts.sign {
@@ -164,7 +164,7 @@ func main() {
 	}
 
 	if err != nil {
-		mu.Die("error: %v", err)
+		mu.Fatalf("error: %v", err)
 	}
 
 	if opts.verify {

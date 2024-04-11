@@ -1,15 +1,16 @@
 package jsonutl
 
 import (
-	"art/internal/mu"
 	"encoding/json"
 	"os"
+
+	"github.com/syslab-wm/mu"
 )
 
 func Encode(fileName string, data interface{}) {
 	file, err := os.Create(fileName)
 	if err != nil {
-		mu.Die("error creating file: %v", err)
+		mu.Fatalf("error creating file: %v", err)
 	}
 
 	enc := json.NewEncoder(file)

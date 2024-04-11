@@ -8,10 +8,10 @@ import (
 	"math"
 	"os"
 
-	"art/internal/jsonutl"
-	"art/internal/keyutl"
-	"art/internal/mu"
-	"art/internal/proto"
+	"github.com/syslab-wm/art/internal/jsonutl"
+	"github.com/syslab-wm/art/internal/keyutl"
+	"github.com/syslab-wm/art/internal/proto"
+	"github.com/syslab-wm/mu"
 )
 
 type Node struct {
@@ -328,17 +328,17 @@ func DeriveLeafKey(ekPath string, suk *ecdh.PublicKey) (*ecdh.PrivateKey, error)
 func MarshallTreeState(state *TreeState) *treeJson {
 	publicTree, err := state.PublicTree.MarshalKeys()
 	if err != nil {
-		mu.Die("failed to marshal the public keys: %v", err)
+		mu.Fatalf("failed to marshal the public keys: %v", err)
 	}
 
 	sk, err := keyutl.MarshalPrivateIKToPEM(state.Sk)
 	if err != nil {
-		mu.Die("error marshaling private stage key: %v", err)
+		mu.Fatalf("error marshaling private stage key: %v", err)
 	}
 
 	lk, err := keyutl.MarshalPrivateEKToPEM(state.Lk)
 	if err != nil {
-		mu.Die("error marshalling private leaf key: %v", err)
+		mu.Fatalf("error marshalling private leaf key: %v", err)
 	}
 	return &treeJson{publicTree, sk, lk, state.IKeys}
 }
@@ -356,17 +356,17 @@ func UnMarshallTreeState(tree *treeJson) *TreeState {
 
 	treeState.PublicTree, err = UnmarshalKeysToPublicTree(tree.PublicTree)
 	if err != nil {
-		mu.Die("error unmarshalling private tree from TREE_FILE", err)
+		mu.Fatalf("error unmarshalling private tree from TREE_FILE", err)
 	}
 
 	treeState.Sk, err = keyutl.UnmarshalPrivateIKFromPEM(tree.Sk)
 	if err != nil {
-		mu.Die("error unmarshalling private stage key from TREE_FILE: %v", err)
+		mu.Fatalf("error unmarshalling private stage key from TREE_FILE: %v", err)
 	}
 
 	treeState.Lk, err = keyutl.UnmarshalPrivateEKFromPEM(tree.Lk)
 	if err != nil {
-		mu.Die("error unmarshalling private leaf key from TREE_FILE: %v", err)
+		mu.Fatalf("error unmarshalling private leaf key from TREE_FILE: %v", err)
 	}
 
 	return &treeState
@@ -377,13 +377,13 @@ func ReadTreeState(treeStateFile string) *TreeState {
 
 	treeFile, err := os.Open(treeStateFile)
 	if err != nil {
-		mu.Die("error opening file %s", treeStateFile)
+		mu.Fatalf("error opening file %s", treeStateFile)
 	}
 
 	decoder := json.NewDecoder(treeFile)
 	err = decoder.Decode(&tree)
 	if err != nil {
-		mu.Die("error reading tree state from %s", treeStateFile)
+		mu.Fatalf("error reading tree state from %s", treeStateFile)
 	}
 
 	defer treeFile.Close()
@@ -422,7 +422,7 @@ func UpdateCoPathNodes(index int, state *TreeState) []*ecdh.PrivateKey {
 	// with the leaf key, derive the private keys on the path up to the root
 	pathKeys, err := proto.PathNodeKeys(state.Lk, copathNodes)
 	if err != nil {
-		mu.Die("error deriving the new private path keys: %v", err)
+		mu.Fatalf("error deriving the new private path keys: %v", err)
 	}
 
 	return pathKeys

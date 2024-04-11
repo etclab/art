@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"strings"
 
-	"art/internal/keyutl"
-	"art/internal/mu"
+	"github.com/syslab-wm/art/internal/keyutl"
+	"github.com/syslab-wm/mu"
 )
 
 const shortUsage = "Usage: genpkey [options] KEYPATH"
@@ -41,16 +41,50 @@ options:
     The encoding for the key files.
 
 examples:
-    # generate an emphemeral ECDH (X25519) keypair for alice
+    # generate an ephemeral ECDH (X25519) keypair for alice
   ./genpkey -outform der -keytype ek alice`
 
-type options struct {
-	outform string
-	keytype string
+type Options struct {
+	// positional
+	basePath string
+
+	//optional
+	outform  string
+	encoding keyutl.KeyEncoding // derived from outform
+	keytype  string
 }
 
 func printUsage() {
 	fmt.Println(usage)
+}
+
+func parseOptions() *Options {
+	var err error
+
+	opts := Options{}
+
+	flag.Usage = printUsage
+	flag.StringVar(&opts.keytype, "keytype", "ik", "")
+	flag.StringVar(&opts.outform, "outform", "pem", "")
+	flag.Parse()
+
+	opts.keytype = strings.ToLower(opts.keytype)
+	if opts.keytype != "ik" && opts.keytype != "ek" {
+		mu.Fatalf("error: -keytype invalid value %q (must be ik|ek)", opts.keytype)
+	}
+
+	opts.outform = strings.ToLower(opts.outform)
+	opts.encoding, err = keyutl.StringToKeyEncoding(opts.outform)
+	if err != nil {
+		mu.Fatalf("error: %v", err)
+	}
+
+	if flag.NArg() != 1 {
+		mu.Fatalf(shortUsage)
+	}
+	opts.basePath = flag.Arg(0)
+
+	return &opts
 }
 
 func createKeyNames(basePath, format, keyType string) (string, string) {
@@ -102,37 +136,17 @@ func generateEKPair(pubPath, privPath string, encoding keyutl.KeyEncoding) error
 func main() {
 	var err error
 
-	opts := options{}
+	opts := parseOptions()
 
-	flag.Usage = printUsage
-	flag.StringVar(&opts.keytype, "keytype", "ik", "")
-	flag.StringVar(&opts.outform, "outform", "pem", "")
-	flag.Parse()
-
-	if flag.NArg() != 1 {
-		mu.Die(shortUsage)
-	}
-	basePath := flag.Arg(0)
-
-	opts.keytype = strings.ToLower(opts.keytype)
-	if opts.keytype != "ik" && opts.keytype != "ek" {
-		mu.Die("error: -keytype invalid value %q (must be ik|ek)", opts.keytype)
-	}
-
-	encoding, err := keyutl.StringToKeyEncoding(opts.outform)
-	if err != nil {
-		mu.Die("%v", err)
-	}
-
-	pubPath, privPath := createKeyNames(basePath, opts.outform, opts.keytype)
+	pubPath, privPath := createKeyNames(opts.basePath, opts.outform, opts.keytype)
 
 	if opts.keytype == "ik" {
-		err = generateIKPair(pubPath, privPath, encoding)
+		err = generateIKPair(pubPath, privPath, opts.encoding)
 	} else {
-		err = generateEKPair(pubPath, privPath, encoding)
+		err = generateEKPair(pubPath, privPath, opts.encoding)
 	}
 
 	if err != nil {
-		mu.Die("failed to generate keypair: %v", err)
+		mu.Fatalf("failed to generate keypair: %v", err)
 	}
 }

@@ -1,7 +1,6 @@
 package proto
 
 import (
-	"art/internal/keyutl"
 	"bytes"
 	"crypto/ecdh"
 	"crypto/rand"
@@ -9,6 +8,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/syslab-wm/art/internal/keyutl"
 	"golang.org/x/crypto/hkdf"
 )
 

@@ -13,10 +13,10 @@ import (
 	"os"
 	"strconv"
 
-	"art/internal/keyutl"
-	"art/internal/mu"
-	"art/internal/proto"
-	"art/internal/tree"
+	"github.com/syslab-wm/art/internal/keyutl"
+	"github.com/syslab-wm/art/internal/proto"
+	"github.com/syslab-wm/art/internal/tree"
+	"github.com/syslab-wm/mu"
 )
 
 const shortUsage = "Usage: update_key [options] INDEX PRIVATE_EK_KEY_FILE TREE_FILE"
@@ -107,7 +107,7 @@ func marshallPublicKeys(pathKeys []*ecdh.PrivateKey) [][]byte {
 	for _, key := range pathKeys {
 		marshalledKey, err := keyutl.MarshalPublicEKToPEM(key.PublicKey())
 		if err != nil {
-			mu.Die("failed to marshal public EK: %v", err)
+			mu.Fatalf("failed to marshal public EK: %v", err)
 		}
 		marshalledPathKeys = append(marshalledPathKeys, marshalledKey)
 	}
@@ -127,7 +127,7 @@ func createUpdateMessage(index int, pathKeys []*ecdh.PrivateKey) proto.KeyUpdate
 func saveKeyUpdateMessage(updateFile string, updateMsg *proto.KeyUpdateMessage) {
 	messageFile, err := os.Create(updateFile)
 	if err != nil {
-		mu.Die("error creating update message file: %v", err)
+		mu.Fatalf("error creating update message file: %v", err)
 	}
 
 	enc := json.NewEncoder(messageFile)
@@ -141,7 +141,7 @@ func generateMAC(sk ed25519.PrivateKey, updateMsg proto.KeyUpdateMessage,
 	// sign the message with the old stage key (symmetric signing)
 	err := signMAC(sk, updateMsg, macFile)
 	if err != nil {
-		mu.Die("error creating MAC signature: %v", err)
+		mu.Fatalf("error creating MAC signature: %v", err)
 	}
 }
 
@@ -149,7 +149,7 @@ func deriveStageKey(state *tree.TreeState, treeSecret *ecdh.PrivateKey) {
 	// TODO: this is repeated
 	treeKeys, err := state.PublicTree.MarshalKeys()
 	if err != nil {
-		mu.Die("failed to marshal the updated tree's public keys: %v", err)
+		mu.Fatalf("failed to marshal the updated tree's public keys: %v", err)
 	}
 
 	stageInfo := proto.StageKeyInfo{
@@ -160,7 +160,7 @@ func deriveStageKey(state *tree.TreeState, treeSecret *ecdh.PrivateKey) {
 	}
 	state.Sk, err = proto.DeriveStageKey(&stageInfo)
 	if err != nil {
-		mu.Die("DeriveStageKey failed: %v", err)
+		mu.Fatalf("DeriveStageKey failed: %v", err)
 	}
 }
 
@@ -170,7 +170,7 @@ func updateKey(opts *options, state *tree.TreeState) {
 	// create a new leaf key
 	state.Lk, err = proto.DHKeyGen()
 	if err != nil {
-		mu.Die("error creating the new leaf key: %v", err)
+		mu.Fatalf("error creating the new leaf key: %v", err)
 	}
 
 	pathKeys := tree.UpdateCoPathNodes(opts.idx, state)
@@ -200,12 +200,12 @@ func parseOptions() *options {
 	flag.Parse()
 
 	if flag.NArg() != 3 {
-		mu.Die(shortUsage)
+		mu.Fatalf(shortUsage)
 	}
 
 	opts.idx, err = strconv.Atoi(flag.Arg(0))
 	if err != nil {
-		mu.Die("error converting positional argument INDEX to int: %v", err)
+		mu.Fatalf("error converting positional argument INDEX to int: %v", err)
 	}
 	opts.privEkFile = flag.Arg(1)
 	opts.treeStateFile = flag.Arg(2)

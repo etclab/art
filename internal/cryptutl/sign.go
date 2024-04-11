@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"art/internal/keyutl"
+	"github.com/syslab-wm/art/internal/keyutl"
 )
 
 func SignFile(privIKFile string, msgFile string) ([]byte, error) {

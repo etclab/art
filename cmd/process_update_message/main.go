@@ -13,10 +13,10 @@ import (
 	"os"
 	"strconv"
 
-	"art/internal/keyutl"
-	"art/internal/mu"
-	"art/internal/proto"
-	"art/internal/tree"
+	"github.com/syslab-wm/art/internal/keyutl"
+	"github.com/syslab-wm/art/internal/proto"
+	"github.com/syslab-wm/art/internal/tree"
+	"github.com/syslab-wm/mu"
 )
 
 const shortUsage = `Usage: process_update_message [options] INDEX \ 
@@ -75,14 +75,14 @@ func decodeMessage(file *os.File, m *proto.KeyUpdateMessage) {
 	dec := json.NewDecoder(file)
 	err := dec.Decode(&m)
 	if err != nil {
-		mu.Die("error decoding message from file:", err)
+		mu.Fatalf("error decoding message from file:", err)
 	}
 }
 
 func readUpdateMessage(msgFilePath string, updateMsg *proto.KeyUpdateMessage) {
 	msgFile, err := os.Open(msgFilePath)
 	if err != nil {
-		mu.Die("error opening message file:", err)
+		mu.Fatalf("error opening message file:", err)
 	}
 	defer msgFile.Close()
 	decodeMessage(msgFile, updateMsg)
@@ -115,10 +115,10 @@ func verifyUpdateMessage(sk ed25519.PrivateKey, uMsg proto.KeyUpdateMessage,
 	macFile string) {
 	valid, err := verifyMAC(sk, uMsg, macFile)
 	if err != nil {
-		mu.Die("error verifying update message file signature: %v", err)
+		mu.Fatalf("error verifying update message file signature: %v", err)
 	}
 	if !valid {
-		mu.Die("update message failed to pass signature verification")
+		mu.Fatalf("update message failed to pass signature verification")
 	}
 }
 
@@ -127,7 +127,7 @@ func unmarshallPublicKeys(pathKeys [][]byte) []*ecdh.PublicKey {
 	for _, pem := range pathKeys {
 		key, err := keyutl.UnmarshalPublicEKFromPEM(pem)
 		if err != nil {
-			mu.Die("failed to marshal public EK: %v", err)
+			mu.Fatalf("failed to marshal public EK: %v", err)
 		}
 		updatedPathKeys = append(updatedPathKeys, key)
 	}
@@ -138,7 +138,7 @@ func deriveStageKey(state *tree.TreeState, treeSecret *ecdh.PrivateKey) {
 	// TODO: this is repeated
 	treeKeys, err := state.PublicTree.MarshalKeys()
 	if err != nil {
-		mu.Die("failed to marshal the updated tree's public keys: %v", err)
+		mu.Fatalf("failed to marshal the updated tree's public keys: %v", err)
 	}
 
 	stageInfo := proto.StageKeyInfo{
@@ -149,7 +149,7 @@ func deriveStageKey(state *tree.TreeState, treeSecret *ecdh.PrivateKey) {
 	}
 	state.Sk, err = proto.DeriveStageKey(&stageInfo)
 	if err != nil {
-		mu.Die("DeriveStageKey failed: %v", err)
+		mu.Fatalf("DeriveStageKey failed: %v", err)
 	}
 }
 
@@ -180,12 +180,12 @@ func parseOptions() *options {
 	flag.Parse()
 
 	if flag.NArg() != 4 {
-		mu.Die(shortUsage)
+		mu.Fatalf(shortUsage)
 	}
 
 	opts.idx, err = strconv.Atoi(flag.Arg(0))
 	if err != nil {
-		mu.Die("error converting positional argument INDEX to int: %v", err)
+		mu.Fatalf("error converting positional argument INDEX to int: %v", err)
 	}
 	opts.privEKFile = flag.Arg(1)
 	opts.treeStateFile = flag.Arg(2)

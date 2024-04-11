@@ -16,10 +16,10 @@ import (
 	"strconv"
 	"strings"
 
-	"art/internal/keyutl"
-	"art/internal/mu"
-	"art/internal/proto"
-	"art/internal/tree"
+	"github.com/syslab-wm/art/internal/keyutl"
+	"github.com/syslab-wm/art/internal/proto"
+	"github.com/syslab-wm/art/internal/tree"
+	"github.com/syslab-wm/mu"
 
 	"golang.org/x/crypto/hkdf"
 )
@@ -198,12 +198,12 @@ func processTreeState(opts *options, state *treeState) {
 	var treejson treejson
 	dec_message, err := os.Open(opts.treeState)
 	if err != nil {
-		mu.Die("error opening TREE_FILE:", err)
+		mu.Fatalf("error opening TREE_FILE:", err)
 	}
 	dec := json.NewDecoder(dec_message)
 	err = dec.Decode(&treejson)
 	if err != nil {
-		mu.Die("error decoding state from TREE_FILE:", err)
+		mu.Fatalf("error decoding state from TREE_FILE:", err)
 	}
 	dec_message.Close()
 
@@ -211,17 +211,17 @@ func processTreeState(opts *options, state *treeState) {
 	state.ikeys = treejson.Ikeys
 	state.publicTree, err = tree.UnmarshalKeysToPublicTree(treejson.PublicTree)
 	if err != nil {
-		mu.Die("error unmarshaling private tree from TREE_FILE", err)
+		mu.Fatalf("error unmarshaling private tree from TREE_FILE", err)
 	}
 
 	state.sk, err = keyutl.UnmarshalPrivateIKFromPEM(treejson.Sk)
 	if err != nil {
-		mu.Die("error unmarshaling private stage key from TREE_FILE: %v", err)
+		mu.Fatalf("error unmarshaling private stage key from TREE_FILE: %v", err)
 	}
 
 	state.lk, err = keyutl.UnmarshalPrivateEKFromPEM(treejson.Lk)
 	if err != nil {
-		mu.Die("error unmarshaling private leaf key from TREE_FILE: %v", err)
+		mu.Fatalf("error unmarshaling private leaf key from TREE_FILE: %v", err)
 	}
 }
 
@@ -229,23 +229,23 @@ func updateTreeState(opts *options, state *treeState) {
 	// creating/truncating the TREE_FILE
 	tree_file, err := os.Create(opts.treeState)
 	if err != nil {
-		mu.Die("error creating TREE_FILE: %v", err)
+		mu.Fatalf("error creating TREE_FILE: %v", err)
 	}
 
 	// filling in the treejson struct to encode into the tree state file
 	publicTree, err := state.publicTree.MarshalKeys()
 	if err != nil {
-		mu.Die("failed to marshal the private keys from the current tree state: %v", err)
+		mu.Fatalf("failed to marshal the private keys from the current tree state: %v", err)
 	}
 
 	sk, err := keyutl.MarshalPrivateIKToPEM(state.sk)
 	if err != nil {
-		mu.Die("error marshaling private stage key from the current tree state: %v", err)
+		mu.Fatalf("error marshaling private stage key from the current tree state: %v", err)
 	}
 
 	lk, err := keyutl.MarshalPrivateEKToPEM(state.lk)
 	if err != nil {
-		mu.Die("error unmarshaling private leaf key from TREE_FILE: %v", err)
+		mu.Fatalf("error unmarshaling private leaf key from TREE_FILE: %v", err)
 	}
 
 	// encoding the tree state
@@ -273,13 +273,13 @@ func deriveStageKey(tk *ecdh.PrivateKey, stageInfo *stageKeyInfo) ed25519.Privat
 	stageRaw := make([]byte, ed25519.PrivateKeySize)
 	_, err := io.ReadFull(hkdf, stageRaw)
 	if err != nil {
-		mu.Die("failed to generate stage key: %v:", err)
+		mu.Fatalf("failed to generate stage key: %v:", err)
 	}
 
 	// is this correct to unmarshal? what key type should the stage key be?
 	stageKey, err := keyutl.UnmarshalPrivateIKFromRaw(stageRaw)
 	if err != nil {
-		mu.Die("failed to unmarshal stage key: %v:", err)
+		mu.Fatalf("failed to unmarshal stage key: %v:", err)
 	}
 
 	return stageKey
@@ -378,12 +378,12 @@ func processMessage(opts *options, state *treeState) ed25519.PrivateKey {
 	var m message
 	dec_message, err := os.Open(opts.setupMsg)
 	if err != nil {
-		mu.Die("error opening message file:", err)
+		mu.Fatalf("error opening message file:", err)
 	}
 	dec := json.NewDecoder(dec_message)
 	err = dec.Decode(&m)
 	if err != nil {
-		mu.Die("error decoding message from file:", err)
+		mu.Fatalf("error decoding message from file:", err)
 	}
 	dec_message.Close()
 
@@ -394,33 +394,33 @@ func processMessage(opts *options, state *treeState) ed25519.PrivateKey {
 	for i := 0; i < len(m.EKeys); i++ {
 		unmarshalledEK, err := keyutl.UnmarshalPublicEKFromPEM(m.EKeys[i])
 		if err != nil {
-			mu.Die("failed to marshal public EK")
+			mu.Fatalf("failed to marshal public EK")
 		}
 		EKS = append(EKS, unmarshalledEK)
 
 		// XXX: shouldn't this be keyutl.Unmarshal ?
 		unmarshalledIK, err := keyutl.MarshalPublicIKToPEM(m.IKeys[i])
 		if err != nil {
-			mu.Die("failed to marshal public IK")
+			mu.Fatalf("failed to marshal public IK")
 		}
 		IKS = append(IKS, unmarshalledIK)
 	}
 
 	suk, err := keyutl.UnmarshalPublicEKFromPEM(m.Suk)
 	if err != nil {
-		mu.Die("failed to unmarshal public SUK")
+		mu.Fatalf("failed to unmarshal public SUK")
 	}
 
 	// unmarshalling the public tree
 	state.publicTree, err = tree.UnmarshalKeysToPublicTree(m.TreeKeys)
 	if err != nil {
-		mu.Die("error unmarshalling the public tree keys: %v", err)
+		mu.Fatalf("error unmarshalling the public tree keys: %v", err)
 	}
 
 	// derive the member's private leaf key
 	state.lk, err = deriveLeafKey(opts.ek, suk)
 	if err != nil {
-		mu.Die("error deriving the private leaf key: %v", err)
+		mu.Fatalf("error deriving the private leaf key: %v", err)
 	}
 
 	// find the nodes on the copath
@@ -430,7 +430,7 @@ func processMessage(opts *options, state *treeState) ed25519.PrivateKey {
 	// with the leaf key, derive the private keys on the path up to the root
 	pathKeys, err := pathNodeKeys(state.lk, copathNodes)
 	if err != nil {
-		mu.Die("error deriving the private path keys: %v", err)
+		mu.Fatalf("error deriving the private path keys: %v", err)
 	}
 
 	// the initial tree key is the last key in pathKeys
@@ -449,22 +449,22 @@ func processUpdateMessage(opts *options, updateMsg string, state *treeState) ed2
 	var upMsg updateMessage
 	dec_message, err := os.Open(updateMsg)
 	if err != nil {
-		mu.Die("error opening message file: %v", err)
+		mu.Fatalf("error opening message file: %v", err)
 	}
 	dec := json.NewDecoder(dec_message)
 	err = dec.Decode(&upMsg)
 	if err != nil {
-		mu.Die("error decoding message from file: %v", err)
+		mu.Fatalf("error decoding message from file: %v", err)
 	}
 	dec_message.Close()
 
 	// verify the signature on the update message with the current stage key
 	valid, err := verifyMAC(state.sk, upMsg, updateMsg+".mac")
 	if err != nil {
-		mu.Die("error verifying update message file signature: %v", err)
+		mu.Fatalf("error verifying update message file signature: %v", err)
 	}
 	if !valid {
-		mu.Die("update message failed to pass signature verification")
+		mu.Fatalf("update message failed to pass signature verification")
 	}
 
 	// unmarshalling the public path node keys
@@ -472,7 +472,7 @@ func processUpdateMessage(opts *options, updateMsg string, state *treeState) ed2
 	for _, pem := range upMsg.PathPublicKeys {
 		key, err := keyutl.UnmarshalPublicEKFromPEM(pem)
 		if err != nil {
-			mu.Die("failed to marshal public EK: %v", err)
+			mu.Fatalf("failed to marshal public EK: %v", err)
 		}
 		updatedPathKeys = append(updatedPathKeys, key)
 	}
@@ -486,13 +486,13 @@ func processUpdateMessage(opts *options, updateMsg string, state *treeState) ed2
 	copathNodes = copath(state.publicTree, opts.idx, copathNodes)
 	memPathKeys, err := pathNodeKeys(state.lk, copathNodes)
 	if err != nil {
-		mu.Die("error deriving the private path keys: %v", err)
+		mu.Fatalf("error deriving the private path keys: %v", err)
 	}
 
 	// derive the new stage key with the updated tree key and other info
 	treeKeys, err := state.publicTree.MarshalKeys()
 	if err != nil {
-		mu.Die("failed to marshal the updated tree's public keys: %v", err)
+		mu.Fatalf("failed to marshal the updated tree's public keys: %v", err)
 	}
 
 	tk := memPathKeys[len(memPathKeys)-1]
@@ -508,7 +508,7 @@ func updateKey(opts *options, state *treeState) ed25519.PrivateKey {
 	var err error
 	state.lk, err = proto.DHKeyGen()
 	if err != nil {
-		mu.Die("error creating the new leaf key: %v", err)
+		mu.Fatalf("error creating the new leaf key: %v", err)
 	}
 
 	// update the path node keys
@@ -518,7 +518,7 @@ func updateKey(opts *options, state *treeState) ed25519.PrivateKey {
 	// with the leaf key, derive the private keys on the path up to the root
 	pathKeys, err := pathNodeKeys(state.lk, copathNodes)
 	if err != nil {
-		mu.Die("error deriving the new private path keys: %v", err)
+		mu.Fatalf("error deriving the new private path keys: %v", err)
 	}
 	tk := pathKeys[len(pathKeys)-1]
 
@@ -529,7 +529,7 @@ func updateKey(opts *options, state *treeState) ed25519.PrivateKey {
 		publicPathKeys = append(publicPathKeys, key.PublicKey())
 		marshalledKey, err := keyutl.MarshalPublicEKToPEM(key.PublicKey())
 		if err != nil {
-			mu.Die("failed to marshal public EK: %v", err)
+			mu.Fatalf("failed to marshal public EK: %v", err)
 		}
 		marshalledPathKeys = append(marshalledPathKeys, marshalledKey)
 	}
@@ -538,13 +538,13 @@ func updateKey(opts *options, state *treeState) ed25519.PrivateKey {
 	state.publicTree = updatePublicTree(publicPathKeys, state.publicTree, opts.idx)
 	treeKeys, err := state.publicTree.MarshalKeys()
 	if err != nil {
-		mu.Die("failed to marshal the updated tree's public keys: %v", err)
+		mu.Fatalf("failed to marshal the updated tree's public keys: %v", err)
 	}
 
 	// creating the message file with the member's index and the new public path node keys
 	message_file, err := os.Create(opts.updateFile)
 	if err != nil {
-		mu.Die("error creating update message file: %v", err)
+		mu.Fatalf("error creating update message file: %v", err)
 	}
 
 	// encoding the message
@@ -556,7 +556,7 @@ func updateKey(opts *options, state *treeState) ed25519.PrivateKey {
 	// sign the message with the old stage key (symmetric signing)
 	err = signMAC(state.sk, updateMsg, opts.updateFile+".mac")
 	if err != nil {
-		mu.Die("error creating MAC signature: %v", err)
+		mu.Fatalf("error creating MAC signature: %v", err)
 	}
 
 	// find the new stage key with the new tree key (and updated full tree)
@@ -578,21 +578,21 @@ func parseOptions() *options {
 	flag.Parse()
 
 	if flag.NArg() != 3 {
-		mu.Die(shortUsage)
+		mu.Fatalf(shortUsage)
 	}
 
 	opts.idx, err = strconv.Atoi(flag.Arg(0))
 	if err != nil {
-		mu.Die("error converting positional argument INDEX to int: %v", err)
+		mu.Fatalf("error converting positional argument INDEX to int: %v", err)
 	}
 	opts.ek = flag.Arg(1)
 	opts.treeState = flag.Arg(2)
 
 	if opts.pk == "" && opts.setupMsg != "" {
-		mu.Die("error: must specify -pk if -setup is selected")
+		mu.Fatalf("error: must specify -pk if -setup is selected")
 	}
 	if opts.setupMsg == "" && opts.pk != "" {
-		mu.Die("error: must specify -setup if -pk is selected")
+		mu.Fatalf("error: must specify -setup if -pk is selected")
 	}
 
 	return &opts
@@ -607,11 +607,11 @@ func main() {
 		// validate the message
 		valid, err := verifySetup(opts.pk, opts.setupMsg, opts.setupMsg+".sig")
 		if err != nil {
-			mu.Die("error: %v", err)
+			mu.Fatalf("error: %v", err)
 		}
 
 		if !valid {
-			mu.Die("error: message signature verification failed")
+			mu.Fatalf("error: message signature verification failed")
 		}
 		// process the message
 		// fill in the tree state struct

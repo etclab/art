@@ -10,12 +10,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"art/internal/cryptutl"
-	"art/internal/jsonutl"
-	"art/internal/keyutl"
-	"art/internal/mu"
-	"art/internal/proto"
-	"art/internal/tree"
+	"github.com/syslab-wm/art/internal/cryptutl"
+	"github.com/syslab-wm/art/internal/jsonutl"
+	"github.com/syslab-wm/art/internal/keyutl"
+	"github.com/syslab-wm/art/internal/proto"
+	"github.com/syslab-wm/art/internal/tree"
+	"github.com/syslab-wm/mu"
 )
 
 const shortUsage = "setup_group [options] CONFIG_FILE PRIV_IK_FILE"
@@ -158,7 +158,7 @@ func (g *group) setInitiator(name string) {
 
 	g.initiator = g.member(name)
 	if g.initiator == nil {
-		mu.Die("error: initiator %q not found in config file", name)
+		mu.Fatalf("error: initiator %q not found in config file", name)
 	}
 }
 
@@ -172,12 +172,12 @@ func (g *group) generateLeafKeys(setupKey *ecdh.PrivateKey) []*ecdh.PrivateKey {
 
 		raw, err := proto.KeyExchange(setupKey, member.pubEK)
 		if err != nil {
-			mu.Die("failed to generate leafKey")
+			mu.Fatalf("failed to generate leafKey")
 		}
 
 		member.leafKey, err = keyutl.UnmarshalPrivateX25519FromRaw(raw)
 		if err != nil {
-			mu.Die("failed to unmarshal leafKey")
+			mu.Fatalf("failed to unmarshal leafKey")
 		}
 		leafKeys = append(leafKeys, member.leafKey)
 	}
@@ -190,12 +190,12 @@ func (g *group) generateInitiatorKeys(initiator string) *ecdh.PrivateKey {
 	g.setInitiator(initiator)
 	g.initiator.leafKey, err = proto.DHKeyGen()
 	if err != nil {
-		mu.Die("failed to generate initiator's leaf key: %v", err)
+		mu.Fatalf("failed to generate initiator's leaf key: %v", err)
 	}
 
 	setupKey, err := proto.KeyExchangeKeyGen()
 	if err != nil {
-		mu.Die("failed to generate the setup key (suk): %v", err)
+		mu.Fatalf("failed to generate the setup key (suk): %v", err)
 	}
 
 	return setupKey
@@ -205,7 +205,7 @@ func generateTree(leafKeys []*ecdh.PrivateKey) (*ecdh.PrivateKey,
 	*tree.PublicNode) {
 	treeRoot, err := tree.CreateTree(leafKeys)
 	if err != nil {
-		mu.Die("failed to create ART tree: %v", err)
+		mu.Fatalf("failed to create ART tree: %v", err)
 	}
 
 	treePublic := treeRoot.PublicKeys()
@@ -223,7 +223,7 @@ func deriveStageKey(treeSecret *ecdh.PrivateKey, msg *proto.Message) []byte {
 	}
 	stageKey, err := proto.DeriveStageKey(&stageInfo)
 	if err != nil {
-		mu.Die("DeriveStageKey failed: %v", err)
+		mu.Fatalf("DeriveStageKey failed: %v", err)
 	}
 
 	return stageKey
@@ -259,25 +259,25 @@ func (g *group) createSetupMessage(suk *ecdh.PublicKey,
 	for _, member := range g.members {
 		marshalledEK, err := keyutl.MarshalPublicEKToPEM(member.pubEK)
 		if err != nil {
-			mu.Die("failed to marshal public EK: %v", err)
+			mu.Fatalf("failed to marshal public EK: %v", err)
 		}
 		marshalledEKS = append(marshalledEKS, marshalledEK)
 
 		marshalledIK, err := keyutl.MarshalPublicIKToPEM(member.pubIK)
 		if err != nil {
-			mu.Die("failed to marshal public IK: %v", err)
+			mu.Fatalf("failed to marshal public IK: %v", err)
 		}
 		marshalledIKS = append(marshalledIKS, marshalledIK)
 	}
 
 	marshalledSuk, err := keyutl.MarshalPublicEKToPEM(suk)
 	if err != nil {
-		mu.Die("failed to marshal public SUK: %v", err)
+		mu.Fatalf("failed to marshal public SUK: %v", err)
 	}
 
 	marshalledPubKeys, err := treePublic.MarshalKeys()
 	if err != nil {
-		mu.Die("failed to marshal the tree's public keys: %v", err)
+		mu.Fatalf("failed to marshal the tree's public keys: %v", err)
 	}
 	msg := proto.Message{
 		IKeys:    marshalledIKS,
@@ -294,25 +294,36 @@ func signFile(msgFile, privateIKFile, sigFile string) {
 
 	sig, err := cryptutl.SignFile(privateIKFile, msgFile)
 	if err != nil {
-		mu.Die("error signing message file: %v", err)
+		mu.Fatalf("error signing message file: %v", err)
 	}
 
 	err = os.WriteFile(sigFile, sig, 0440)
 	if err != nil {
-		mu.Die("can't write signature file: %v", err)
+		mu.Fatalf("can't write signature file: %v", err)
 	}
+}
+
+// ResolvePath resolves the rel path relative to the start path.
+// The resolution is purely lexical.
+func resolvePath(rel, start string) string {
+	if filepath.IsAbs(rel) {
+		return rel
+	}
+	dir := filepath.Dir(start)
+	file := filepath.Base(rel)
+	return filepath.Join(dir, file)
 }
 
 func (g *group) saveSetupMessage(opts *options, msg *proto.Message) {
 
 	err := os.MkdirAll(opts.outDir, 0750)
 	if err != nil {
-		mu.Die("error: can't create out-dir: %v", err)
+		mu.Fatalf("error: can't create out-dir: %v", err)
 	}
 
 	jsonutl.Encode(opts.msgFile, msg)
 
-	privIKFile := mu.ResolvePath(opts.privIKFile, opts.configFile)
+	privIKFile := resolvePath(opts.privIKFile, opts.configFile)
 
 	signFile(opts.msgFile, privIKFile, opts.sigFile)
 }
@@ -320,12 +331,12 @@ func (g *group) saveSetupMessage(opts *options, msg *proto.Message) {
 func getNewMember(fields []string, configDir string) *member {
 	name, pubIKFile, pubEKFile := fields[0], fields[1], fields[2]
 
-	pubIKFile = mu.ResolvePath(pubIKFile, configDir)
-	pubEKFile = mu.ResolvePath(pubEKFile, configDir)
+	pubIKFile = resolvePath(pubIKFile, configDir)
+	pubEKFile = resolvePath(pubEKFile, configDir)
 
 	member, err := newMember(name, pubIKFile, pubEKFile)
 	if err != nil {
-		mu.Die("error: creating new group member %v", err)
+		mu.Fatalf("error: creating new group member %v", err)
 	}
 
 	return member
@@ -335,13 +346,13 @@ func validateMember(fields []string, lineNum int, nameSet map[string]bool) {
 	numFields := len(fields)
 
 	if numFields != 3 {
-		mu.Die("error: config file line %d has %d fields; expected 3", lineNum,
+		mu.Fatalf("error: config file line %d has %d fields; expected 3", lineNum,
 			numFields)
 	}
 
 	name := fields[0]
 	if exists := nameSet[name]; exists {
-		mu.Die("error: config file has multiple entries for %q", name)
+		mu.Fatalf("error: config file has multiple entries for %q", name)
 	}
 	nameSet[name] = true
 }
@@ -370,7 +381,7 @@ func addMembersFromFile(file *os.File) *group {
 	}
 
 	if err := scanner.Err(); err != nil {
-		mu.Die("error: failed to read config file: %v", err)
+		mu.Fatalf("error: failed to read config file: %v", err)
 	}
 
 	return g
@@ -379,7 +390,7 @@ func addMembersFromFile(file *os.File) *group {
 func newGroupFromFile(configFile string) *group {
 	f, err := os.Open(configFile)
 	if err != nil {
-		mu.Die("error: can't open config file: %v", err)
+		mu.Fatalf("error: can't open config file: %v", err)
 	}
 	defer f.Close()
 
@@ -387,7 +398,7 @@ func newGroupFromFile(configFile string) *group {
 
 	numMembers := len(g.members)
 	if numMembers == 0 {
-		mu.Die("error: config file has zero entries")
+		mu.Fatalf("error: config file has zero entries")
 	}
 
 	return g
@@ -405,7 +416,7 @@ func parseOptions() *options {
 	flag.Parse()
 
 	if flag.NArg() != 2 {
-		mu.Die(shortUsage)
+		mu.Fatalf(shortUsage)
 	}
 
 	opts.configFile = flag.Arg(0)
