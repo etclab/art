@@ -8,8 +8,8 @@ import (
 	"github.com/syslab-wm/mu"
 )
 
-const shortUsage = "Usage: update_key [options] INDEX PRIVATE_EK_KEY_FILE TREE_FILE"
-const usage = `Usage: update_key [options] INDEX PRIVATE_EK_KEY_FILE TREE_FILE
+const shortUsage = "Usage: update_key [options] INDEX TREE_FILE"
+const usage = `Usage: update_key [options] INDEX TREE_FILE
 
 Update an agent's key at position INDEX
 
@@ -18,10 +18,6 @@ positional arguments:
 	The index position of the 'current' group member that is updating the key, 
 	this index is based off the member's position in the group config
 	file, where the first entry is at index 1.
-
-  PRIVATE_EK_KEY_FILE
-	The 'current' group member's private ephemeral key file (also called a 
-	prekey). This is a PEM-encoded X25519 private key.
 
   TREE_FILE
 	The file that contains the current state of the tree. This state will be 
@@ -53,7 +49,6 @@ func printUsage() {
 type options struct {
 	// positional args
 	idx           int
-	privEkFile    string
 	treeStateFile string
 
 	// options
@@ -67,10 +62,10 @@ func parseOptions() *options {
 
 	flag.Usage = printUsage
 	flag.StringVar(&opts.updateFile, "update-file", "update_key.msg", "")
-	flag.StringVar(&opts.macFile, "sig-file", "", "")
+	flag.StringVar(&opts.macFile, "mac-file", "", "")
 	flag.Parse()
 
-	if flag.NArg() != 3 {
+	if flag.NArg() != 2 {
 		mu.Fatalf(shortUsage)
 	}
 
@@ -78,8 +73,8 @@ func parseOptions() *options {
 	if err != nil {
 		mu.Fatalf("error converting positional argument INDEX to int: %v", err)
 	}
-	opts.privEkFile = flag.Arg(1)
-	opts.treeStateFile = flag.Arg(2)
+	// TODO: make sure index is >= 1
+	opts.treeStateFile = flag.Arg(1)
 
 	if opts.macFile == "" {
 		opts.macFile = opts.updateFile + ".mac"
