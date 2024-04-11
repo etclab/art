@@ -5,7 +5,6 @@ import (
 	"crypto/ecdh"
 	"crypto/ed25519"
 	"crypto/hmac"
-	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -42,7 +41,7 @@ func verifyMAC(sk ed25519.PrivateKey, msg art.UpdateMessage,
 	MACBytes = append(MACBytes, bs...)
 
 	// create the MAC
-	mac := hmac.New(sha256.New, sk)
+	mac := art.NewHMAC(sk)
 	mac.Write(MACBytes)
 	macData := mac.Sum(nil)
 

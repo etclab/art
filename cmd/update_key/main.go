@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"crypto/ecdh"
 	"crypto/ed25519"
-	"crypto/hmac"
-	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -24,7 +22,7 @@ func signMAC(sk ed25519.PrivateKey, msg art.UpdateMessage, macFile string) error
 	MACBytes = append(MACBytes, bs...)
 
 	// creating the MAC
-	mac := hmac.New(sha256.New, sk)
+	mac := art.NewHMAC(sk)
 	mac.Write(MACBytes)
 	macData := mac.Sum(nil)
 
@@ -35,6 +33,15 @@ func signMAC(sk ed25519.PrivateKey, msg art.UpdateMessage, macFile string) error
 	}
 
 	return nil
+}
+
+func generateMAC(sk ed25519.PrivateKey, updateMsg art.UpdateMessage,
+	macFile string) {
+	// sign the message with the old stage key (symmetric signing)
+	err := signMAC(sk, updateMsg, macFile)
+	if err != nil {
+		mu.Fatalf("error creating MAC signature: %v", err)
+	}
 }
 
 func getPublicKeys(pathKeys []*ecdh.PrivateKey) []*ecdh.PublicKey {
@@ -78,15 +85,6 @@ func saveUpdateMessage(updateFile string, updateMsg *art.UpdateMessage) {
 	enc.Encode(updateMsg)
 
 	defer messageFile.Close()
-}
-
-func generateMAC(sk ed25519.PrivateKey, updateMsg art.UpdateMessage,
-	macFile string) {
-	// sign the message with the old stage key (symmetric signing)
-	err := signMAC(sk, updateMsg, macFile)
-	if err != nil {
-		mu.Fatalf("error creating MAC signature: %v", err)
-	}
 }
 
 func deriveStageKey(state *art.TreeState, treeSecret *ecdh.PrivateKey) {
