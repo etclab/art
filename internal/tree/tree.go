@@ -2,17 +2,25 @@ package tree
 
 import (
 	"crypto/ecdh"
+	"crypto/ed25519"
+	"encoding/json"
 	"fmt"
 	"math"
+	"os"
 
+	"art/internal/jsonutl"
 	"art/internal/keyutl"
+	"art/internal/mu"
+	"art/internal/proto"
 )
 
 type Node struct {
-	sk     *ecdh.PrivateKey
-	left   *Node
-	right  *Node
-	height int
+	sk        *ecdh.PrivateKey
+	left      *Node
+	right     *Node
+	x         int
+	y         int
+	numLeaves int
 }
 
 type PublicNode struct {
@@ -22,9 +30,20 @@ type PublicNode struct {
 	Height int // a height of zero indicates a leaf node
 }
 
-// XXX: never called
-func NodeIsLeaf(node *Node) bool {
-	return node.left == nil && node.right == nil
+type treeJson struct {
+	PublicTree [][]byte `json:"publicTree"`
+	Sk         []byte   `json:"sk"`
+	Lk         []byte   `json:"lk"`
+	IKeys      [][]byte `json:"iKeys"`
+}
+
+type TreeState struct {
+	// TODO: maybe add a tracker for the stage number to ensure updates
+	// are processed in the correct order
+	PublicTree *PublicNode
+	Sk         ed25519.PrivateKey
+	Lk         *ecdh.PrivateKey
+	IKeys      [][]byte
 }
 
 // leftSubtreeSize computes the number of leaves in the leftsubtree of a
@@ -35,25 +54,25 @@ func leftSubtreeSize(x int) int {
 	return int(math.Pow(2, exp))
 }
 
-func CreateTree(leafKeys []*ecdh.PrivateKey) (*Node, error) {
+func createTree(leafKeys []*ecdh.PrivateKey, x int, y int) (*Node, error) {
 	// base case
 	n := len(leafKeys)
 	if n == 1 {
-		return &Node{sk: leafKeys[0], left: nil, right: nil, height: 0}, nil
+		return &Node{sk: leafKeys[0], left: nil, right: nil, x: x, y: y}, nil
 	}
 
-	// recurse
-	numLeaves := leftSubtreeSize(n)
-	left, err := CreateTree(leafKeys[:numLeaves])
+	h := leftSubtreeSize(n)
+	left, err := createTree(leafKeys[:h], x+1, 2*y)
 	if err != nil {
 		return nil, err
 	}
-	right, err := CreateTree(leafKeys[numLeaves:])
+	right, err := createTree(leafKeys[h:], x+1, 2*y+1)
 	if err != nil {
 		return nil, err
 	}
 
 	// compute current node's private key from its children's keys
+
 	pkRight := right.sk.PublicKey()
 	raw, err := left.sk.ECDH(pkRight)
 	if err != nil {
@@ -64,16 +83,12 @@ func CreateTree(leafKeys []*ecdh.PrivateKey) (*Node, error) {
 		return nil, fmt.Errorf("can't unmarshal private x25519 key for node: %v", err)
 	}
 
-	// compute current node's height from it's children's height
-	// it's a complete tree so every non-leaf node will have two children
-	height := 0
-	if left.height > right.height {
-		height = left.height + 1
-	} else {
-		height = right.height + 1
-	}
+	return &Node{sk: sk, left: left, right: right, x: x, y: y, numLeaves: n}, nil
 
-	return &Node{sk: sk, left: left, right: right, height: height}, nil
+}
+
+func CreateTree(leafKeys []*ecdh.PrivateKey) (*Node, error) {
+	return createTree(leafKeys, 0, 0)
 }
 
 func (node *Node) PublicKeys() *PublicNode {
@@ -84,10 +99,8 @@ func (node *Node) PublicKeys() *PublicNode {
 	left := node.left.PublicKeys()
 	right := node.right.PublicKeys()
 	pk := node.sk.PublicKey()
-	// the tree structure is staying the same, so the node heights will be the same
-	height := node.height
 
-	return &PublicNode{pk: pk, Left: left, Right: right, Height: height}
+	return &PublicNode{pk: pk, Left: left, Right: right}
 }
 
 /*
@@ -96,7 +109,6 @@ func (node *Node) PublicKeys() *PublicNode {
 ***
  */
 func (node *Node) MarshalKeys() ([][]byte, error) {
-	//key_list := make([]*ecdh.PublicKey, 0)
 	marshalled_list := make([][]byte, 0)
 
 	if node == nil {
@@ -108,7 +120,6 @@ func (node *Node) MarshalKeys() ([][]byte, error) {
 
 	for len(node_list) != 0 {
 		current := node_list[0]
-		//key_list = append(key_list, current.pk)
 
 		marshalledPK, err := keyutl.MarshalPrivateEKToPEM(current.sk)
 		if err != nil {
@@ -130,7 +141,7 @@ func (node *Node) MarshalKeys() ([][]byte, error) {
 
 // constructing a private tree from a level-order list of marshalled keys
 func UnmarshalKeysToPrivateTree(marshalledKeys [][]byte) (*Node, error) {
-	root := &Node{sk: nil, left: nil, right: nil, height: 0}
+	root := &Node{sk: nil, left: nil, right: nil, x: 0, y: 0}
 	nodeQueue := make([]*Node, 0)
 
 	for i := 0; i < len(marshalledKeys); i++ {
@@ -144,23 +155,18 @@ func UnmarshalKeysToPrivateTree(marshalledKeys [][]byte) (*Node, error) {
 		root, nodeQueue = insertNode(root, pk, nodeQueue)
 	}
 
-	updateHeights(root)
 	return root, nil
 }
 
 func insertNode(root *Node, sk *ecdh.PrivateKey, nodeQueue []*Node) (*Node, []*Node) {
-	node := &Node{sk: sk, left: nil, right: nil, height: 0}
+	node := &Node{sk: sk, left: nil, right: nil, x: 0, y: 0}
 
 	if root.sk == nil {
 		root = node
 	} else if nodeQueue[0].left == nil {
 		nodeQueue[0].left = node
-		nodeQueue[0].height = node.height + 1
 	} else { //nodeQueue[0].right == nil
 		nodeQueue[0].right = node
-		if nodeQueue[0].left.height < node.height {
-			nodeQueue[0].height = node.height + 1
-		}
 		nodeQueue = nodeQueue[1:]
 	}
 
@@ -168,24 +174,6 @@ func insertNode(root *Node, sk *ecdh.PrivateKey, nodeQueue []*Node) (*Node, []*N
 	return root, nodeQueue
 }
 
-func updateHeights(node *Node) *Node {
-	if node.left == nil && node.right == nil {
-		node.height = 0
-		return node
-	}
-
-	left := updateHeights(node.left)
-	right := updateHeights(node.right)
-
-	if left.height > right.height {
-		node.height = left.height + 1
-	} else {
-		node.height = right.height + 1
-	}
-	return node
-}
-
-// XXX: probably don't need this getter
 func (Node *Node) GetSk() *ecdh.PrivateKey {
 	return Node.sk
 }
@@ -294,4 +282,148 @@ func updatePublicHeights(node *PublicNode) *PublicNode {
 		node.Height = right.Height + 1
 	}
 	return node
+}
+
+func CoPath(root *PublicNode, idx int, copathNodes []*ecdh.PublicKey) []*ecdh.PublicKey {
+	// if len(copathNodes) == 0 {
+	// 	copathNodes = append(copathNodes, root.GetPk())
+	// }
+
+	// height of 0 means we're at the leaf
+	if root.Height == 0 {
+		// copathNodes = append(copathNodes, root)
+		return copathNodes
+	}
+
+	// leaf is in the left subtree
+	if idx <= int(math.Pow(2, float64(root.Height)))/2 {
+		copathNodes = append(copathNodes, root.Right.GetPk())
+		return CoPath(root.Left, idx, copathNodes)
+	} else { // leaf is in the right subtree
+		idx = idx - int(math.Pow(2, float64(root.Height)))/2
+		copathNodes = append(copathNodes, root.Left.GetPk())
+		return CoPath(root.Right, idx, copathNodes)
+	}
+}
+
+func DeriveLeafKey(ekPath string, suk *ecdh.PublicKey) (*ecdh.PrivateKey, error) {
+	ek, err := keyutl.ReadPrivateEKFromFile(ekPath, keyutl.PEM)
+	if err != nil {
+		return nil, fmt.Errorf("can't read private key file: %v", err)
+	}
+
+	raw, err := proto.KeyExchange(ek, suk)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate the member's leaf key: %v", err)
+	}
+
+	leafKey, err := keyutl.UnmarshalPrivateX25519FromRaw(raw)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal the member's leaf key: %v", err)
+	}
+
+	return leafKey, nil
+}
+
+func MarshallTreeState(state *TreeState) *treeJson {
+	publicTree, err := state.PublicTree.MarshalKeys()
+	if err != nil {
+		mu.Die("failed to marshal the public keys: %v", err)
+	}
+
+	sk, err := keyutl.MarshalPrivateIKToPEM(state.Sk)
+	if err != nil {
+		mu.Die("error marshaling private stage key: %v", err)
+	}
+
+	lk, err := keyutl.MarshalPrivateEKToPEM(state.Lk)
+	if err != nil {
+		mu.Die("error marshalling private leaf key: %v", err)
+	}
+	return &treeJson{publicTree, sk, lk, state.IKeys}
+}
+
+func SaveTreeState(outStateFile string, state *TreeState) {
+	treeJson := MarshallTreeState(state)
+	jsonutl.Encode(outStateFile, treeJson)
+}
+
+func UnMarshallTreeState(tree *treeJson) *TreeState {
+	var err error
+	var treeState TreeState
+
+	treeState.IKeys = tree.IKeys
+
+	treeState.PublicTree, err = UnmarshalKeysToPublicTree(tree.PublicTree)
+	if err != nil {
+		mu.Die("error unmarshalling private tree from TREE_FILE", err)
+	}
+
+	treeState.Sk, err = keyutl.UnmarshalPrivateIKFromPEM(tree.Sk)
+	if err != nil {
+		mu.Die("error unmarshalling private stage key from TREE_FILE: %v", err)
+	}
+
+	treeState.Lk, err = keyutl.UnmarshalPrivateEKFromPEM(tree.Lk)
+	if err != nil {
+		mu.Die("error unmarshalling private leaf key from TREE_FILE: %v", err)
+	}
+
+	return &treeState
+}
+
+func ReadTreeState(treeStateFile string) *TreeState {
+	var tree treeJson
+
+	treeFile, err := os.Open(treeStateFile)
+	if err != nil {
+		mu.Die("error opening file %s", treeStateFile)
+	}
+
+	decoder := json.NewDecoder(treeFile)
+	err = decoder.Decode(&tree)
+	if err != nil {
+		mu.Die("error reading tree state from %s", treeStateFile)
+	}
+
+	defer treeFile.Close()
+
+	return UnMarshallTreeState(&tree)
+}
+
+// update the full tree with the new leaf and path keys
+func UpdatePublicTree(pathKeys []*ecdh.PublicKey, root *PublicNode,
+	idx int) *PublicNode {
+	// height of 0 means we're at the leaf
+	if root.Height == 0 {
+		root.UpdatePk(pathKeys[0])
+		// copathNodes = append(copathNodes, root)
+		return root
+	}
+
+	// leaf is in the left subtree
+	if idx <= int(math.Pow(2, float64(root.Height)))/2 {
+		root.UpdatePk(pathKeys[len(pathKeys)-1])
+		root.Left = UpdatePublicTree(pathKeys[:len(pathKeys)-1], root.Left, idx)
+
+	} else { // leaf is in the right subtree
+		idx = idx - int(math.Pow(2, float64(root.Height)))/2
+		root.UpdatePk(pathKeys[len(pathKeys)-1])
+		root.Right = UpdatePublicTree(pathKeys[:len(pathKeys)-1], root.Right, idx)
+	}
+	return root
+}
+
+func UpdateCoPathNodes(index int, state *TreeState) []*ecdh.PrivateKey {
+	// get the copath nodes
+	copathNodes := make([]*ecdh.PublicKey, 0)
+	copathNodes = CoPath(state.PublicTree, index, copathNodes)
+
+	// with the leaf key, derive the private keys on the path up to the root
+	pathKeys, err := proto.PathNodeKeys(state.Lk, copathNodes)
+	if err != nil {
+		mu.Die("error deriving the new private path keys: %v", err)
+	}
+
+	return pathKeys
 }

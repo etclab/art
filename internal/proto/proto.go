@@ -1,14 +1,28 @@
 package proto
 
 import (
+	"art/internal/keyutl"
 	"bytes"
 	"crypto/ecdh"
 	"crypto/rand"
 	"crypto/sha256"
+	"fmt"
 	"io"
 
 	"golang.org/x/crypto/hkdf"
 )
+
+type Message struct {
+	IKeys    [][]byte `json:"iKeys"`
+	EKeys    [][]byte `json:"eKeys"`
+	Suk      []byte   `json:"suk"`
+	TreeKeys [][]byte `json:"treeKeys"`
+}
+
+type KeyUpdateMessage struct {
+	Idx            int
+	PathPublicKeys [][]byte
+}
 
 const StageKeySize = 32
 
@@ -27,35 +41,60 @@ func KeyExchange(sk *ecdh.PrivateKey, pk *ecdh.PublicKey) ([]byte, error) {
 }
 
 type StageKeyInfo struct {
-	IKeys    [][]byte
-	TreeKeys [][]byte
+	PrevStageKey  []byte
+	TreeSecretKey []byte
+	TreeKeys      [][]byte
+	IKeys         [][]byte
 }
 
-/*
- * encoding the stage key info struct into a single byte stream
- * can't use encoding/gob because the byte streams aren't guaranteed to be equivalent
- * across different encoders
- */
-func (info *StageKeyInfo) ToBytes() []byte {
-	a := make([][]byte, 0)
-	a = append(a, bytes.Join(info.IKeys, []byte(" ")))
-	a = append(a, bytes.Join(info.TreeKeys, []byte(" ")))
-	b := bytes.Join(a, []byte(" "))
-	return b
+func (skInfo *StageKeyInfo) GetIKM() []byte {
+	// Secret in HKDF = (prevStageKey + treeSecret + serializedTree)
+	ikm := make([]byte, 0)
+	ikm = append(ikm, skInfo.PrevStageKey...)
+	ikm = append(ikm, skInfo.TreeSecretKey...)
+	ikm = append(ikm, bytes.Join(skInfo.TreeKeys, []byte(""))...)
+
+	return ikm
 }
 
-// Returns 32 bytes
-func DeriveStageKey(tk *ecdh.PrivateKey, info *StageKeyInfo) ([]byte, error) {
+func (skInfo *StageKeyInfo) GetInfo() []byte {
+	return bytes.Join(skInfo.IKeys, []byte(""))
+}
+
+func DeriveStageKey(skInfo *StageKeyInfo) ([]byte, error) {
 	hash := sha256.New
-	// secret is tree key
-	// info should be struct with: array of ids & array of public key nodes
-	// XXX: how would the old stage key be input into the HKDF?  Would you
-	// prepend it to tk.Bytes()?
-	hkdf := hkdf.New(hash, tk.Bytes(), nil, info.ToBytes())
+	ikm := skInfo.GetIKM()
+	info := skInfo.GetInfo()
+
+	hkdf := hkdf.New(hash, ikm, nil, info)
 	stageKey := make([]byte, StageKeySize)
 	_, err := io.ReadFull(hkdf, stageKey)
 	if err != nil {
 		return nil, err
 	}
+
 	return stageKey, nil
+}
+
+func PathNodeKeys(leafKey *ecdh.PrivateKey, copathKeys []*ecdh.PublicKey) (
+	[]*ecdh.PrivateKey, error) {
+	pathKeys := make([]*ecdh.PrivateKey, 0)
+	pathKeys = append(pathKeys, leafKey)
+
+	// starting at the "bottom" of the copath and working up
+	for i := 0; i < len(copathKeys); i++ {
+		raw, err := pathKeys[i].ECDH(copathKeys[len(copathKeys)-i-1])
+		if err != nil {
+			return nil, fmt.Errorf("ECDH for node failed: %v", err)
+		}
+
+		key, err := keyutl.UnmarshalPrivateX25519FromRaw(raw)
+		if err != nil {
+			return nil, fmt.Errorf("can't unmarshal private x25519 key for node: %v", err)
+		}
+
+		pathKeys = append(pathKeys, key)
+	}
+
+	return pathKeys, nil
 }

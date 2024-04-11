@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"crypto/ecdh"
 	"crypto/ed25519"
-	"encoding/gob"
 	"flag"
 	"fmt"
 	"os"
@@ -12,6 +11,7 @@ import (
 	"strings"
 
 	"art/internal/cryptutl"
+	"art/internal/jsonutl"
 	"art/internal/keyutl"
 	"art/internal/mu"
 	"art/internal/proto"
@@ -27,9 +27,9 @@ Setup the ART group.
 positional arguments:
   CONFIG_FILE
     The config file has one line per group member (including the initiator).
-    Each line consists of three whitespace-seperated fields:
+    Each line consists of three whitespace-separated fields:
 
-      NAME IK_FILE EK_FILE
+      NAME PUB_IK_FILE PUB_EK_FILE
 
     where,
       NAME: 
@@ -48,7 +48,7 @@ positional arguments:
   PRIV_IK_FILE
     The initiator's private identity key file.  This is a PEM-encoded ED25519
     key.  This key signs the setup message; the signature is written to
-    MSG_FILE.sig.
+    SIG_FILE.
 
 options:
   -initiator NAME
@@ -56,16 +56,25 @@ options:
     names in CONFIG_FILE.  If this option is not provided, the initiator
     is the first entry in the CONFIG_FILE.
 
-  -outdir OUTDIR
+  -out-dir OUT_DIR
     The output directory.  The program will place various output files
     in this directory, such as the leaf key for each member.  If not
-    provided, the program sets outdir to basename(CONFIG_FILE).dir.
-    If the outdir does not exist, the program creates it.
+    provided, the program sets out-dir to basename(CONFIG_FILE).dir.
+    If the out-dir does not exist, the program creates it.
+
+  -out-state STATE_FILE
+    The file to output the node's state. If not provided, the default is 
+	state.json. 
+
+  -msg-file MSG_FILE
+    The message file. If omitted, the message is saved to file setup.msg
+
+  -sig-file SIG_FILE
+	The signature file. If omitted, the signature is saved to file MSG_FILE.sig
 
 example:
-    ./setup_group -initiator alice -outdir group.d group.cfg alice-ik.pem`
-
-/* Group is size n (the initiator, and the n-1 peers) */
+    ./setup_group -initiator alice -out-dir group.d -msg-file setup.msg \
+		-sig-file setup.msg.sig group.cfg alice-ik.pem`
 
 func printUsage() {
 	fmt.Println(usage)
@@ -77,11 +86,11 @@ type options struct {
 	privIKFile string
 
 	// options
-	initiator string
-	outdir    string
-
-	// TODO
-	sigFile string
+	initiator     string
+	outDir        string
+	msgFile       string
+	sigFile       string
+	treeStateFile string
 }
 
 type member struct {
@@ -98,14 +107,6 @@ type group struct {
 	initiator *member
 }
 
-// TODO: move to proto
-type message struct {
-	IKeys    [][]byte
-	EKeys    [][]byte
-	Suk      []byte
-	TreeKeys [][]byte
-}
-
 func newMember(name, pubIKFile, pubEKFile string) (*member, error) {
 	var err error
 
@@ -113,12 +114,14 @@ func newMember(name, pubIKFile, pubEKFile string) (*member, error) {
 
 	m.pubIK, err = keyutl.ReadPublicIKFromFile(m.pubIKFile, keyutl.PEM)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read public IK for %q from %q: %v", m.name, m.pubIKFile, err)
+		return nil, fmt.Errorf("failed to read public IK for %q from %q: %v",
+			m.name, m.pubIKFile, err)
 	}
 
 	m.pubEK, err = keyutl.ReadPublicEKFromFile(m.pubEKFile, keyutl.PEM)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read public EK for %q from %q: %v", m.name, m.pubEKFile, err)
+		return nil, fmt.Errorf("failed to read public EK for %q from %q: %v",
+			m.name, m.pubEKFile, err)
 	}
 
 	return m, nil
@@ -159,19 +162,7 @@ func (g *group) setInitiator(name string) {
 	}
 }
 
-func (g *group) setup(opts *options) {
-	var err error
-
-	g.setInitiator(opts.initiator)
-	g.initiator.leafKey, err = proto.DHKeyGen()
-	if err != nil {
-		mu.Die("failed to generate initiator's leaf key: %v", err)
-	}
-	suk, err := proto.KeyExchangeKeyGen()
-	if err != nil {
-		mu.Die("failed to generate the setup key (suk): %v", err)
-	}
-
+func (g *group) generateLeafKeys(setupKey *ecdh.PrivateKey) []*ecdh.PrivateKey {
 	leafKeys := make([]*ecdh.PrivateKey, 0, len(g.members))
 	for _, member := range g.members {
 		if member.name == g.initiator.name {
@@ -179,7 +170,7 @@ func (g *group) setup(opts *options) {
 			continue
 		}
 
-		raw, err := proto.KeyExchange(suk, member.pubEK)
+		raw, err := proto.KeyExchange(setupKey, member.pubEK)
 		if err != nil {
 			mu.Die("failed to generate leafKey")
 		}
@@ -190,31 +181,78 @@ func (g *group) setup(opts *options) {
 		}
 		leafKeys = append(leafKeys, member.leafKey)
 	}
+	return leafKeys
+}
 
-	treeSecret, err := tree.CreateTree(leafKeys)
+func (g *group) generateInitiatorKeys(initiator string) *ecdh.PrivateKey {
+	var err error
+
+	g.setInitiator(initiator)
+	g.initiator.leafKey, err = proto.DHKeyGen()
+	if err != nil {
+		mu.Die("failed to generate initiator's leaf key: %v", err)
+	}
+
+	setupKey, err := proto.KeyExchangeKeyGen()
+	if err != nil {
+		mu.Die("failed to generate the setup key (suk): %v", err)
+	}
+
+	return setupKey
+}
+
+func generateTree(leafKeys []*ecdh.PrivateKey) (*ecdh.PrivateKey,
+	*tree.PublicNode) {
+	treeRoot, err := tree.CreateTree(leafKeys)
 	if err != nil {
 		mu.Die("failed to create ART tree: %v", err)
 	}
 
-	//// for debugging that the tree key here matches the one derived in process_setup_message
-	fmt.Println(keyutl.MarshalPrivateEKToPEM(treeSecret.GetSk()))
-	fmt.Println()
+	treePublic := treeRoot.PublicKeys()
+	treeSecret := treeRoot.GetSk()
 
-	// creating the message to be used by the other members
-	treePublic := treeSecret.PublicKeys()
-	msg := g.createMessage(opts, suk.PublicKey(), treePublic)
+	return treeSecret, treePublic
+}
 
-	// deriving the stage key
-	stageInfo := proto.StageKeyInfo{IKeys: msg.IKeys, TreeKeys: msg.TreeKeys}
-	stageKey, err := proto.DeriveStageKey(treeSecret.GetSk(), &stageInfo)
+func deriveStageKey(treeSecret *ecdh.PrivateKey, msg *proto.Message) []byte {
+	stageInfo := proto.StageKeyInfo{
+		PrevStageKey:  make([]byte, proto.StageKeySize),
+		TreeSecretKey: treeSecret.Bytes(),
+		IKeys:         msg.IKeys,
+		TreeKeys:      msg.TreeKeys,
+	}
+	stageKey, err := proto.DeriveStageKey(&stageInfo)
 	if err != nil {
 		mu.Die("DeriveStageKey failed: %v", err)
 	}
-	fmt.Printf("stage key: %v", stageKey)
+
+	return stageKey
 }
 
-func (g *group) createMessage(opts *options, suk *ecdh.PublicKey, treePublic *tree.PublicNode) message {
-	// marshalling all the keys
+func (g *group) setup(opts *options, state *tree.TreeState) {
+
+	suk := g.generateInitiatorKeys(opts.initiator)
+	leafKeys := g.generateLeafKeys(suk)
+	state.Lk = g.initiator.leafKey
+
+	treeSecret, treePublic := generateTree(leafKeys)
+	state.PublicTree = treePublic
+
+	secretBytes, _ := keyutl.MarshalPrivateEKToPEM(treeSecret)
+	fmt.Printf("Tree Secret:\n%v\n", string(secretBytes))
+
+	msg := g.createSetupMessage(suk.PublicKey(), treePublic)
+	g.saveSetupMessage(opts, msg)
+	state.IKeys = msg.IKeys
+
+	state.Sk = deriveStageKey(treeSecret, msg)
+
+	fmt.Printf("Stage key: %v\n", state.Sk)
+}
+
+func (g *group) createSetupMessage(suk *ecdh.PublicKey,
+	treePublic *tree.PublicNode) *proto.Message {
+	// marshall identity keys, ephemeral keys, suk and tree public keys
 	marshalledEKS := make([][]byte, 0, len(g.members))
 	marshalledIKS := make([][]byte, 0, len(g.members))
 
@@ -232,58 +270,88 @@ func (g *group) createMessage(opts *options, suk *ecdh.PublicKey, treePublic *tr
 		marshalledIKS = append(marshalledIKS, marshalledIK)
 	}
 
-	marshalledsuk, err := keyutl.MarshalPublicEKToPEM(suk)
+	marshalledSuk, err := keyutl.MarshalPublicEKToPEM(suk)
 	if err != nil {
 		mu.Die("failed to marshal public SUK: %v", err)
 	}
 
-	// creating the message file
-	msgPath := filepath.Join(opts.outdir, "setup.msg")
-	msgFile, err := os.Create(msgPath)
-	if err != nil {
-		mu.Die("error creating message file: %v", err)
-	}
-
-	// encoding the message
-	enc := gob.NewEncoder(msgFile)
-
-	treeMarshalledKeys, err := treePublic.MarshalKeys()
+	marshalledPubKeys, err := treePublic.MarshalKeys()
 	if err != nil {
 		mu.Die("failed to marshal the tree's public keys: %v", err)
 	}
-	msg := message{marshalledIKS, marshalledEKS, marshalledsuk, treeMarshalledKeys}
-	enc.Encode(msg)
-	msgFile.Close()
+	msg := proto.Message{
+		IKeys:    marshalledIKS,
+		EKeys:    marshalledEKS,
+		Suk:      marshalledSuk,
+		TreeKeys: marshalledPubKeys,
+	}
 
-	// sign message file with the initiator's private key
-	sig, err := cryptutl.SignFile(opts.privIKFile, msgPath)
+	return &msg
+}
+
+// sign message file with initiator's private identity key
+func signFile(msgFile, privateIKFile, sigFile string) {
+
+	sig, err := cryptutl.SignFile(privateIKFile, msgFile)
 	if err != nil {
 		mu.Die("error signing message file: %v", err)
 	}
 
-	sigFile := filepath.Join(opts.outdir, "setup.msg.sig")
 	err = os.WriteFile(sigFile, sig, 0440)
 	if err != nil {
 		mu.Die("can't write signature file: %v", err)
 	}
-
-	return msg
 }
 
-func newGroupFromFile(configFile string) *group {
-	var err error
-	var m *member
+func (g *group) saveSetupMessage(opts *options, msg *proto.Message) {
+
+	err := os.MkdirAll(opts.outDir, 0750)
+	if err != nil {
+		mu.Die("error: can't create out-dir: %v", err)
+	}
+
+	jsonutl.Encode(opts.msgFile, msg)
+
+	privIKFile := mu.ResolvePath(opts.privIKFile, opts.configFile)
+
+	signFile(opts.msgFile, privIKFile, opts.sigFile)
+}
+
+func getNewMember(fields []string, configDir string) *member {
+	name, pubIKFile, pubEKFile := fields[0], fields[1], fields[2]
+
+	pubIKFile = mu.ResolvePath(pubIKFile, configDir)
+	pubEKFile = mu.ResolvePath(pubEKFile, configDir)
+
+	member, err := newMember(name, pubIKFile, pubEKFile)
+	if err != nil {
+		mu.Die("error: creating new group member %v", err)
+	}
+
+	return member
+}
+
+func validateMember(fields []string, lineNum int, nameSet map[string]bool) {
+	numFields := len(fields)
+
+	if numFields != 3 {
+		mu.Die("error: config file line %d has %d fields; expected 3", lineNum,
+			numFields)
+	}
+
+	name := fields[0]
+	if exists := nameSet[name]; exists {
+		mu.Die("error: config file has multiple entries for %q", name)
+	}
+	nameSet[name] = true
+}
+
+func addMembersFromFile(file *os.File) *group {
 	g := &group{}
 	nameSet := make(map[string]bool)
 
-	f, err := os.Open(configFile)
-	if err != nil {
-		mu.Die("error: can't open config file: %v", err)
-	}
-	defer f.Close()
-
 	lineNum := 0
-	scanner := bufio.NewScanner(f)
+	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		lineNum++
 		line := scanner.Text()
@@ -296,37 +364,30 @@ func newGroupFromFile(configFile string) *group {
 		if numFields == 0 {
 			continue
 		}
-		if numFields != 3 {
-			mu.Die("error: config file line %d has %d fields; expected 3", lineNum, numFields)
-		}
 
-		name, pubIKFile, pubEKFile := fields[0], fields[1], fields[2]
-		if exists := nameSet[name]; exists {
-			mu.Die("error: config file has multiple entries for %q", name)
-		}
-		nameSet[name] = true
-
-		pubIKFile = mu.ResolvePath(pubIKFile, configFile)
-		pubEKFile = mu.ResolvePath(pubEKFile, configFile)
-
-		m, err = newMember(name, pubIKFile, pubEKFile)
-		if err != nil {
-			mu.Die("error: %v", err)
-		}
-		g.addMember(m)
+		validateMember(fields, lineNum, nameSet)
+		g.addMember(getNewMember(fields, file.Name()))
 	}
 
 	if err := scanner.Err(); err != nil {
 		mu.Die("error: failed to read config file: %v", err)
 	}
 
-	numMembers := len(nameSet)
+	return g
+}
+
+func newGroupFromFile(configFile string) *group {
+	f, err := os.Open(configFile)
+	if err != nil {
+		mu.Die("error: can't open config file: %v", err)
+	}
+	defer f.Close()
+
+	g := addMembersFromFile(f)
+
+	numMembers := len(g.members)
 	if numMembers == 0 {
 		mu.Die("error: config file has zero entries")
-	}
-
-	if !mu.IsPowerOfTwo(uint(numMembers)) {
-		mu.Die("error: config file must have a power of two number of members, but has %d", numMembers)
 	}
 
 	return g
@@ -337,7 +398,10 @@ func parseOptions() *options {
 
 	flag.Usage = printUsage
 	flag.StringVar(&opts.initiator, "initiator", "", "")
-	flag.StringVar(&opts.outdir, "outdir", "", "")
+	flag.StringVar(&opts.outDir, "out-dir", "", "")
+	flag.StringVar(&opts.msgFile, "msg-file", "setup.msg", "")
+	flag.StringVar(&opts.sigFile, "sig-file", "", "")
+	flag.StringVar(&opts.treeStateFile, "out-state", "state.json", "")
 	flag.Parse()
 
 	if flag.NArg() != 2 {
@@ -347,23 +411,29 @@ func parseOptions() *options {
 	opts.configFile = flag.Arg(0)
 	opts.privIKFile = flag.Arg(1)
 
-	if opts.outdir == "" {
-		opts.outdir = filepath.Base(opts.configFile) + ".dir"
+	if opts.outDir == "" {
+		opts.outDir = filepath.Base(opts.configFile) + ".dir"
 	}
+
+	if opts.sigFile == "" {
+		opts.sigFile = opts.msgFile + ".sig"
+	}
+
+	opts.msgFile = filepath.Join(opts.outDir, opts.msgFile)
+	opts.sigFile = filepath.Join(opts.outDir, opts.sigFile)
+	opts.treeStateFile = filepath.Join(opts.outDir, opts.treeStateFile)
 
 	return &opts
 }
 
 func main() {
 	opts := parseOptions()
+	var state tree.TreeState
 
 	g := newGroupFromFile(opts.configFile)
-	//g.printMembers()
+	g.printMembers()
 
-	err := os.MkdirAll(opts.outdir, 0750)
-	if err != nil {
-		mu.Die("error: can't create outdir: %v", err)
-	}
+	g.setup(opts, &state)
 
-	g.setup(opts)
+	tree.SaveTreeState(opts.treeStateFile, &state)
 }

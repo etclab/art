@@ -36,5 +36,6 @@ func ResolvePath(rel, start string) string {
 		return rel
 	}
 	dir := filepath.Dir(start)
-	return filepath.Join(dir, rel)
+	file := filepath.Base(rel)
+	return filepath.Join(dir, file)
 }
