@@ -16,7 +16,7 @@ import (
 	"github.com/syslab-wm/mu"
 )
 
-func decodeMessage(file *os.File, m *art.KeyUpdateMessage) {
+func decodeMessage(file *os.File, m *art.UpdateMessage) {
 	dec := json.NewDecoder(file)
 	err := dec.Decode(&m)
 	if err != nil {
@@ -24,7 +24,7 @@ func decodeMessage(file *os.File, m *art.KeyUpdateMessage) {
 	}
 }
 
-func readUpdateMessage(msgFilePath string, updateMsg *art.KeyUpdateMessage) {
+func readUpdateMessage(msgFilePath string, updateMsg *art.UpdateMessage) {
 	msgFile, err := os.Open(msgFilePath)
 	if err != nil {
 		mu.Fatalf("error opening message file:", err)
@@ -33,7 +33,7 @@ func readUpdateMessage(msgFilePath string, updateMsg *art.KeyUpdateMessage) {
 	decodeMessage(msgFile, updateMsg)
 }
 
-func verifyMAC(sk ed25519.PrivateKey, msg art.KeyUpdateMessage,
+func verifyMAC(sk ed25519.PrivateKey, msg art.UpdateMessage,
 	macFile string) (bool, error) {
 	// convert the update message contents into a byte array
 	bs := make([]byte, 4)
@@ -56,7 +56,7 @@ func verifyMAC(sk ed25519.PrivateKey, msg art.KeyUpdateMessage,
 }
 
 // verify the message signature with the current stage key
-func verifyUpdateMessage(sk ed25519.PrivateKey, uMsg art.KeyUpdateMessage,
+func verifyUpdateMessage(sk ed25519.PrivateKey, uMsg art.UpdateMessage,
 	macFile string) {
 	valid, err := verifyMAC(sk, uMsg, macFile)
 	if err != nil {
@@ -99,7 +99,7 @@ func deriveStageKey(state *art.TreeState, treeSecret *ecdh.PrivateKey) {
 }
 
 func processUpdateMessage(opts *options, state *art.TreeState) {
-	var updateMessage art.KeyUpdateMessage
+	var updateMessage art.UpdateMessage
 
 	readUpdateMessage(opts.updateMessageFile, &updateMessage)
 	verifyUpdateMessage(state.Sk, updateMessage, opts.macFile)

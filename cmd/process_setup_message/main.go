@@ -22,7 +22,7 @@ func verifyMessage(publicKeyPath, msgFile, sigFile string) {
 	}
 }
 
-func decodeMessage(file *os.File, m *art.Message) {
+func decodeMessage(file *os.File, m *art.SetupMessage) {
 	dec := json.NewDecoder(file)
 	err := dec.Decode(&m)
 	if err != nil {
@@ -30,7 +30,7 @@ func decodeMessage(file *os.File, m *art.Message) {
 	}
 }
 
-func readMessage(msgFilePath string, m *art.Message) {
+func readMessage(msgFilePath string, m *art.SetupMessage) {
 	msgFile, err := os.Open(msgFilePath)
 	if err != nil {
 		mu.Fatalf("error opening message file:", err)
@@ -39,7 +39,7 @@ func readMessage(msgFilePath string, m *art.Message) {
 	decodeMessage(msgFile, m)
 }
 
-func getSetupKey(m *art.Message) *ecdh.PublicKey {
+func getSetupKey(m *art.SetupMessage) *ecdh.PublicKey {
 	suk, err := keyutl.UnmarshalPublicEKFromPEM(m.Suk)
 	if err != nil {
 		mu.Fatalf("failed to unmarshal public SUK")
@@ -47,7 +47,7 @@ func getSetupKey(m *art.Message) *ecdh.PublicKey {
 	return suk
 }
 
-func getPublicTree(m *art.Message) *art.PublicNode {
+func getPublicTree(m *art.SetupMessage) *art.PublicNode {
 	tree, err := art.UnmarshalKeysToPublicTree(m.TreeKeys)
 	if err != nil {
 		mu.Fatalf("error unmarshalling the public tree keys: %v", err)
@@ -79,7 +79,7 @@ func deriveTreeKey(state *art.TreeState, index int) *ecdh.PrivateKey {
 	return pathKeys[len(pathKeys)-1]
 }
 
-func deriveStageKey(treeKey *ecdh.PrivateKey, m *art.Message) []byte {
+func deriveStageKey(treeKey *ecdh.PrivateKey, m *art.SetupMessage) []byte {
 	stageInfo := art.StageKeyInfo{
 		PrevStageKey:  make([]byte, art.StageKeySize),
 		TreeSecretKey: treeKey.Bytes(),
@@ -95,7 +95,7 @@ func deriveStageKey(treeKey *ecdh.PrivateKey, m *art.Message) []byte {
 }
 
 func processMessage(opts *options, state *art.TreeState) {
-	var m art.Message
+	var m art.SetupMessage
 
 	verifyMessage(opts.initiatorPubIKFile, opts.setupMessageFile, opts.sigFile)
 	readMessage(opts.setupMessageFile, &m)
@@ -112,8 +112,8 @@ func processMessage(opts *options, state *art.TreeState) {
 
 func main() {
 	opts := parseOptions()
-	var state art.TreeState
 
+	var state art.TreeState
 	processMessage(opts, &state)
 
 	art.SaveTreeState(opts.treeStateFile, &state)

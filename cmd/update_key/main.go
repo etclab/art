@@ -16,7 +16,7 @@ import (
 	"github.com/syslab-wm/mu"
 )
 
-func signMAC(sk ed25519.PrivateKey, msg art.KeyUpdateMessage, macFile string) error {
+func signMAC(sk ed25519.PrivateKey, msg art.UpdateMessage, macFile string) error {
 	// converting the update message contents into a byte array
 	bs := make([]byte, 4)
 	binary.LittleEndian.PutUint32(bs, uint32(msg.Idx))
@@ -59,16 +59,16 @@ func marshallPublicKeys(pathKeys []*ecdh.PrivateKey) [][]byte {
 	return marshalledPathKeys
 }
 
-func createUpdateMessage(index int, pathKeys []*ecdh.PrivateKey) art.KeyUpdateMessage {
+func createUpdateMessage(index int, pathKeys []*ecdh.PrivateKey) art.UpdateMessage {
 	marshalledPathKeys := marshallPublicKeys(pathKeys)
-	updateMsg := art.KeyUpdateMessage{
+	updateMsg := art.UpdateMessage{
 		Idx:            index,
 		PathPublicKeys: marshalledPathKeys,
 	}
 	return updateMsg
 }
 
-func saveKeyUpdateMessage(updateFile string, updateMsg *art.KeyUpdateMessage) {
+func saveUpdateMessage(updateFile string, updateMsg *art.UpdateMessage) {
 	messageFile, err := os.Create(updateFile)
 	if err != nil {
 		mu.Fatalf("error creating update message file: %v", err)
@@ -80,7 +80,7 @@ func saveKeyUpdateMessage(updateFile string, updateMsg *art.KeyUpdateMessage) {
 	defer messageFile.Close()
 }
 
-func generateMAC(sk ed25519.PrivateKey, updateMsg art.KeyUpdateMessage,
+func generateMAC(sk ed25519.PrivateKey, updateMsg art.UpdateMessage,
 	macFile string) {
 	// sign the message with the old stage key (symmetric signing)
 	err := signMAC(sk, updateMsg, macFile)
@@ -123,7 +123,7 @@ func updateKey(opts *options, state *art.TreeState) {
 	publicPathKeys := getPublicKeys(pathKeys)
 
 	updateMsg := createUpdateMessage(opts.idx, pathKeys)
-	saveKeyUpdateMessage(opts.updateFile, &updateMsg)
+	saveUpdateMessage(opts.updateFile, &updateMsg)
 	generateMAC(state.Sk, updateMsg, opts.macFile)
 
 	// replace the updated nodes in the full tree representation

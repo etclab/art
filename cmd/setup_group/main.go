@@ -137,7 +137,7 @@ func generateTree(leafKeys []*ecdh.PrivateKey) (*ecdh.PrivateKey,
 	return treeSecret, treePublic
 }
 
-func deriveStageKey(treeSecret *ecdh.PrivateKey, msg *art.Message) []byte {
+func deriveStageKey(treeSecret *ecdh.PrivateKey, msg *art.SetupMessage) []byte {
 	stageInfo := art.StageKeyInfo{
 		PrevStageKey:  make([]byte, art.StageKeySize),
 		TreeSecretKey: treeSecret.Bytes(),
@@ -174,7 +174,7 @@ func (g *group) setup(opts *options, state *art.TreeState) {
 }
 
 func (g *group) createSetupMessage(suk *ecdh.PublicKey,
-	treePublic *art.PublicNode) *art.Message {
+	treePublic *art.PublicNode) *art.SetupMessage {
 	// marshall identity keys, ephemeral keys, suk and tree public keys
 	marshalledEKS := make([][]byte, 0, len(g.members))
 	marshalledIKS := make([][]byte, 0, len(g.members))
@@ -202,7 +202,7 @@ func (g *group) createSetupMessage(suk *ecdh.PublicKey,
 	if err != nil {
 		mu.Fatalf("failed to marshal the tree's public keys: %v", err)
 	}
-	msg := art.Message{
+	msg := art.SetupMessage{
 		IKeys:    marshalledIKS,
 		EKeys:    marshalledEKS,
 		Suk:      marshalledSuk,
@@ -238,7 +238,7 @@ func resolvePath(rel, start string) string {
 	return filepath.Join(dir, file)
 }
 
-func (g *group) saveSetupMessage(opts *options, msg *art.Message) {
+func (g *group) saveSetupMessage(opts *options, msg *art.SetupMessage) {
 	err := os.MkdirAll(opts.outDir, 0750)
 	if err != nil {
 		mu.Fatalf("error: can't create out-dir: %v", err)

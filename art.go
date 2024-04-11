@@ -12,14 +12,14 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
-type Message struct {
+type SetupMessage struct {
 	IKeys    [][]byte `json:"iKeys"`
 	EKeys    [][]byte `json:"eKeys"`
 	Suk      []byte   `json:"suk"`
 	TreeKeys [][]byte `json:"treeKeys"`
 }
 
-type KeyUpdateMessage struct {
+type UpdateMessage struct {
 	Idx            int
 	PathPublicKeys [][]byte
 }

@@ -81,6 +81,7 @@ func parseOptions() *options {
 	if err != nil {
 		mu.Fatalf("error converting positional argument INDEX to int: %v", err)
 	}
+	// TODO: check that position is >= 1
 	opts.privEKFile = flag.Arg(1)
 	opts.initiatorPubIKFile = flag.Arg(2)
 	opts.setupMessageFile = flag.Arg(3)
