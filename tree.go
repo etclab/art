@@ -305,7 +305,7 @@ func CoPath(root *PublicNode, idx int, copathNodes []*ecdh.PublicKey) []*ecdh.Pu
 }
 
 func DeriveLeafKey(ekPath string, suk *ecdh.PublicKey) (*ecdh.PrivateKey, error) {
-	ek, err := ReadPrivateEKFromFile(ekPath, PEM)
+	ek, err := ReadPrivateEKFromFile(ekPath, EncodingPEM)
 	if err != nil {
 		return nil, fmt.Errorf("can't read private key file: %v", err)
 	}

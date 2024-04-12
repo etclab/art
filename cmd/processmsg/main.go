@@ -129,7 +129,7 @@ type treejson struct {
 
 // TODO: move this function to internal/cryptutl/sign.go
 func verifySetup(pkPath string, msgfile string, sigfile string) (bool, error) {
-	pk, err := art.ReadPublicIKFromFile(pkPath, art.PEM)
+	pk, err := art.ReadPublicIKFromFile(pkPath, art.EncodingPEM)
 	if err != nil {
 		return false, fmt.Errorf("can't read public key file: %v", err)
 	}
@@ -351,7 +351,7 @@ func updatePublicTree(pathKeys []*ecdh.PublicKey, root *art.PublicNode, idx int)
 }
 
 func deriveLeafKey(ekPath string, suk *ecdh.PublicKey) (*ecdh.PrivateKey, error) {
-	ek, err := art.ReadPrivateEKFromFile(ekPath, art.PEM)
+	ek, err := art.ReadPrivateEKFromFile(ekPath, art.EncodingPEM)
 	if err != nil {
 		return nil, fmt.Errorf("can't read private key file: %v", err)
 	}

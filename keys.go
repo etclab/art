@@ -15,10 +15,10 @@ import (
 type KeyEncoding int
 
 const (
-	Unknown KeyEncoding = iota
-	Raw
-	DER
-	PEM
+	EncodingUnknown KeyEncoding = iota
+	EncodingRaw
+	EncodingDER
+	EncodingPEM
 )
 
 const (
@@ -37,13 +37,13 @@ func StringToKeyEncoding(keyform string) (KeyEncoding, error) {
 	keyform = strings.ToLower(keyform)
 	switch keyform {
 	case "raw":
-		return Raw, nil
+		return EncodingRaw, nil
 	case "der":
-		return DER, nil
+		return EncodingDER, nil
 	case "pem":
-		return PEM, nil
+		return EncodingPEM, nil
 	default:
-		return Unknown, fmt.Errorf("unknown key encoding %q", keyform)
+		return EncodingUnknown, fmt.Errorf("unknown key encoding %q", keyform)
 	}
 }
 
@@ -89,11 +89,11 @@ func WritePublicIKToFile(key ed25519.PublicKey, path string, encoding KeyEncodin
 	var encoded []byte
 
 	switch encoding {
-	case Raw:
+	case EncodingRaw:
 		encoded, err = MarshalPublicIKToRaw(key)
-	case DER:
+	case EncodingDER:
 		encoded, err = MarshalPublicIKToDER(key)
-	case PEM:
+	case EncodingPEM:
 		encoded, err = MarshalPublicIKToPEM(key)
 	default:
 		err = fmt.Errorf("cannot write public IK to file: unrecognized encoding format %q", encoding)
@@ -144,11 +144,11 @@ func WritePrivateIKToFile(key ed25519.PrivateKey, path string, encoding KeyEncod
 	var encoded []byte
 
 	switch encoding {
-	case Raw:
+	case EncodingRaw:
 		encoded, err = MarshalPrivateIKToRaw(key)
-	case DER:
+	case EncodingDER:
 		encoded, err = MarshalPrivateIKToDER(key)
-	case PEM:
+	case EncodingPEM:
 		encoded, err = MarshalPrivateIKToPEM(key)
 	default:
 		err = fmt.Errorf("cannot write private IK to file: unrecognized encoding format %q", encoding)
@@ -199,11 +199,11 @@ func WritePublicEKToFile(key *ecdh.PublicKey, path string, encoding KeyEncoding)
 	var encoded []byte
 
 	switch encoding {
-	case Raw:
+	case EncodingRaw:
 		encoded, err = MarshalPublicEKToRaw(key)
-	case DER:
+	case EncodingDER:
 		encoded, err = MarshalPublicEKToDER(key)
-	case PEM:
+	case EncodingPEM:
 		encoded, err = MarshalPublicEKToPEM(key)
 	default:
 		err = fmt.Errorf("cannot write public EK to file: unrecognized encoding format %q", encoding)
@@ -254,11 +254,11 @@ func WritePrivateEKToFile(key *ecdh.PrivateKey, path string, encoding KeyEncodin
 	var encoded []byte
 
 	switch encoding {
-	case Raw:
+	case EncodingRaw:
 		encoded, err = MarshalPrivateEKToRaw(key)
-	case DER:
+	case EncodingDER:
 		encoded, err = MarshalPrivateEKToDER(key)
-	case PEM:
+	case EncodingPEM:
 		encoded, err = MarshalPrivateEKToPEM(key)
 	default:
 		err = fmt.Errorf("cannot write private EK to file: unrecognized encoding format %q", encoding)
@@ -322,11 +322,11 @@ func ReadPublicIKFromFile(path string, encoding KeyEncoding) (ed25519.PublicKey,
 	}
 
 	switch encoding {
-	case Raw:
+	case EncodingRaw:
 		return UnmarshalPublicIKFromRaw(data)
-	case DER:
+	case EncodingDER:
 		return UnmarshalPublicIKFromDER(data)
-	case PEM:
+	case EncodingPEM:
 		return UnmarshalPublicIKFromPEM(data)
 	default:
 		return nil, fmt.Errorf("cannot read public IK from file: unrecognized encoding format %q", encoding)
@@ -379,11 +379,11 @@ func ReadPrivateIKFromFile(path string, encoding KeyEncoding) (ed25519.PrivateKe
 	}
 
 	switch encoding {
-	case Raw:
+	case EncodingRaw:
 		return UnmarshalPrivateIKFromRaw(data)
-	case DER:
+	case EncodingDER:
 		return UnmarshalPrivateIKFromDER(data)
-	case PEM:
+	case EncodingPEM:
 		return UnmarshalPrivateIKFromPEM(data)
 	default:
 		return nil, fmt.Errorf("cannot read private IK from file: unrecognized encoding format %q", encoding)
@@ -433,11 +433,11 @@ func ReadPublicEKFromFile(path string, encoding KeyEncoding) (*ecdh.PublicKey, e
 	}
 
 	switch encoding {
-	case Raw:
+	case EncodingRaw:
 		return UnmarshalPublicEKFromRaw(data)
-	case DER:
+	case EncodingDER:
 		return UnmarshalPublicEKFromDER(data)
-	case PEM:
+	case EncodingPEM:
 		return UnmarshalPublicEKFromPEM(data)
 	default:
 		return nil, fmt.Errorf("cannot read public EK from file: unrecognized encoding format %q", encoding)
@@ -486,11 +486,11 @@ func ReadPrivateEKFromFile(path string, encoding KeyEncoding) (*ecdh.PrivateKey,
 	}
 
 	switch encoding {
-	case Raw:
+	case EncodingRaw:
 		return UnmarshalPrivateEKFromRaw(data)
-	case DER:
+	case EncodingDER:
 		return UnmarshalPrivateEKFromDER(data)
-	case PEM:
+	case EncodingPEM:
 		return UnmarshalPrivateEKFromPEM(data)
 	default:
 		return nil, fmt.Errorf("cannot read private EK from file: unrecognized encoding format %q", encoding)

@@ -14,7 +14,7 @@ func NewHMAC(key []byte) hash.Hash {
 }
 
 func SignFile(privIKFile string, msgFile string) ([]byte, error) {
-	sk, err := ReadPrivateIKFromFile(privIKFile, PEM)
+	sk, err := ReadPrivateIKFromFile(privIKFile, EncodingPEM)
 	if err != nil {
 		return nil, fmt.Errorf("can't read private key file: %v", err)
 	}
@@ -34,7 +34,7 @@ func SignFile(privIKFile string, msgFile string) ([]byte, error) {
 }
 
 func VerifySignature(pkPath, msgFile, sigFile string) (bool, error) {
-	pk, err := ReadPublicIKFromFile(pkPath, PEM)
+	pk, err := ReadPublicIKFromFile(pkPath, EncodingPEM)
 	if err != nil {
 		return false, fmt.Errorf("can't read public key file: %v", err)
 	}

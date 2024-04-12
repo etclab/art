@@ -33,13 +33,13 @@ func newMember(name, pubIKFile, pubEKFile string) (*member, error) {
 
 	m := &member{name: name, pubIKFile: pubIKFile, pubEKFile: pubEKFile}
 
-	m.pubIK, err = art.ReadPublicIKFromFile(m.pubIKFile, art.PEM)
+	m.pubIK, err = art.ReadPublicIKFromFile(m.pubIKFile, art.EncodingPEM)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read public IK for %q from %q: %v",
 			m.name, m.pubIKFile, err)
 	}
 
-	m.pubEK, err = art.ReadPublicEKFromFile(m.pubEKFile, art.PEM)
+	m.pubEK, err = art.ReadPublicEKFromFile(m.pubEKFile, art.EncodingPEM)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read public EK for %q from %q: %v",
 			m.name, m.pubEKFile, err)
