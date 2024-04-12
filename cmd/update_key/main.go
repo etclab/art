@@ -10,7 +10,6 @@ import (
 	"os"
 
 	"github.com/syslab-wm/art"
-	"github.com/syslab-wm/art/internal/keyutl"
 	"github.com/syslab-wm/mu"
 )
 
@@ -56,7 +55,7 @@ func marshallPublicKeys(pathKeys []*ecdh.PrivateKey) [][]byte {
 	marshalledPathKeys := make([][]byte, 0, len(pathKeys))
 
 	for _, key := range pathKeys {
-		marshalledKey, err := keyutl.MarshalPublicEKToPEM(key.PublicKey())
+		marshalledKey, err := art.MarshalPublicEKToPEM(key.PublicKey())
 		if err != nil {
 			mu.Fatalf("failed to marshal public EK: %v", err)
 		}

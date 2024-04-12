@@ -17,7 +17,6 @@ import (
 	"strings"
 
 	"github.com/syslab-wm/art"
-	"github.com/syslab-wm/art/internal/keyutl"
 	"github.com/syslab-wm/mu"
 
 	"golang.org/x/crypto/hkdf"
@@ -130,7 +129,7 @@ type treejson struct {
 
 // TODO: move this function to internal/cryptutl/sign.go
 func verifySetup(pkPath string, msgfile string, sigfile string) (bool, error) {
-	pk, err := keyutl.ReadPublicIKFromFile(pkPath, keyutl.PEM)
+	pk, err := art.ReadPublicIKFromFile(pkPath, art.PEM)
 	if err != nil {
 		return false, fmt.Errorf("can't read public key file: %v", err)
 	}
@@ -213,12 +212,12 @@ func processTreeState(opts *options, state *treeState) {
 		mu.Fatalf("error unmarshaling private tree from TREE_FILE", err)
 	}
 
-	state.sk, err = keyutl.UnmarshalPrivateIKFromPEM(treejson.Sk)
+	state.sk, err = art.UnmarshalPrivateIKFromPEM(treejson.Sk)
 	if err != nil {
 		mu.Fatalf("error unmarshaling private stage key from TREE_FILE: %v", err)
 	}
 
-	state.lk, err = keyutl.UnmarshalPrivateEKFromPEM(treejson.Lk)
+	state.lk, err = art.UnmarshalPrivateEKFromPEM(treejson.Lk)
 	if err != nil {
 		mu.Fatalf("error unmarshaling private leaf key from TREE_FILE: %v", err)
 	}
@@ -237,12 +236,12 @@ func updateTreeState(opts *options, state *treeState) {
 		mu.Fatalf("failed to marshal the private keys from the current tree state: %v", err)
 	}
 
-	sk, err := keyutl.MarshalPrivateIKToPEM(state.sk)
+	sk, err := art.MarshalPrivateIKToPEM(state.sk)
 	if err != nil {
 		mu.Fatalf("error marshaling private stage key from the current tree state: %v", err)
 	}
 
-	lk, err := keyutl.MarshalPrivateEKToPEM(state.lk)
+	lk, err := art.MarshalPrivateEKToPEM(state.lk)
 	if err != nil {
 		mu.Fatalf("error unmarshaling private leaf key from TREE_FILE: %v", err)
 	}
@@ -276,7 +275,7 @@ func deriveStageKey(tk *ecdh.PrivateKey, stageInfo *stageKeyInfo) ed25519.Privat
 	}
 
 	// is this correct to unmarshal? what key type should the stage key be?
-	stageKey, err := keyutl.UnmarshalPrivateIKFromRaw(stageRaw)
+	stageKey, err := art.UnmarshalPrivateIKFromRaw(stageRaw)
 	if err != nil {
 		mu.Fatalf("failed to unmarshal stage key: %v:", err)
 	}
@@ -318,7 +317,7 @@ func pathNodeKeys(leafKey *ecdh.PrivateKey, copathKeys []*ecdh.PublicKey) ([]*ec
 			return nil, fmt.Errorf("ECDH for node failed: %v", err)
 		}
 
-		key, err := keyutl.UnmarshalPrivateX25519FromRaw(raw)
+		key, err := art.UnmarshalPrivateX25519FromRaw(raw)
 		if err != nil {
 			return nil, fmt.Errorf("can't unmarshal private x25519 key for node: %v", err)
 		}
@@ -352,7 +351,7 @@ func updatePublicTree(pathKeys []*ecdh.PublicKey, root *art.PublicNode, idx int)
 }
 
 func deriveLeafKey(ekPath string, suk *ecdh.PublicKey) (*ecdh.PrivateKey, error) {
-	ek, err := keyutl.ReadPrivateEKFromFile(ekPath, keyutl.PEM)
+	ek, err := art.ReadPrivateEKFromFile(ekPath, art.PEM)
 	if err != nil {
 		return nil, fmt.Errorf("can't read private key file: %v", err)
 	}
@@ -362,7 +361,7 @@ func deriveLeafKey(ekPath string, suk *ecdh.PublicKey) (*ecdh.PrivateKey, error)
 		return nil, fmt.Errorf("failed to generate the member's leaf key: %v", err)
 	}
 
-	leafKey, err := keyutl.UnmarshalPrivateX25519FromRaw(raw)
+	leafKey, err := art.UnmarshalPrivateX25519FromRaw(raw)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal the member's leaf key: %v", err)
 	}
@@ -391,21 +390,21 @@ func processMessage(opts *options, state *treeState) ed25519.PrivateKey {
 	IKS := make([]ed25519.PublicKey, 0, len(m.IKeys))
 
 	for i := 0; i < len(m.EKeys); i++ {
-		unmarshalledEK, err := keyutl.UnmarshalPublicEKFromPEM(m.EKeys[i])
+		unmarshalledEK, err := art.UnmarshalPublicEKFromPEM(m.EKeys[i])
 		if err != nil {
 			mu.Fatalf("failed to marshal public EK")
 		}
 		EKS = append(EKS, unmarshalledEK)
 
-		// XXX: shouldn't this be keyutl.Unmarshal ?
-		unmarshalledIK, err := keyutl.MarshalPublicIKToPEM(m.IKeys[i])
+		// XXX: shouldn't this be art.Unmarshal ?
+		unmarshalledIK, err := art.MarshalPublicIKToPEM(m.IKeys[i])
 		if err != nil {
 			mu.Fatalf("failed to marshal public IK")
 		}
 		IKS = append(IKS, unmarshalledIK)
 	}
 
-	suk, err := keyutl.UnmarshalPublicEKFromPEM(m.Suk)
+	suk, err := art.UnmarshalPublicEKFromPEM(m.Suk)
 	if err != nil {
 		mu.Fatalf("failed to unmarshal public SUK")
 	}
@@ -469,7 +468,7 @@ func processUpdateMessage(opts *options, updateMsg string, state *treeState) ed2
 	// unmarshalling the public path node keys
 	updatedPathKeys := make([]*ecdh.PublicKey, 0, len(upMsg.PathPublicKeys))
 	for _, pem := range upMsg.PathPublicKeys {
-		key, err := keyutl.UnmarshalPublicEKFromPEM(pem)
+		key, err := art.UnmarshalPublicEKFromPEM(pem)
 		if err != nil {
 			mu.Fatalf("failed to marshal public EK: %v", err)
 		}
@@ -526,7 +525,7 @@ func updateKey(opts *options, state *treeState) ed25519.PrivateKey {
 	marshalledPathKeys := make([][]byte, 0, len(pathKeys))
 	for _, key := range pathKeys {
 		publicPathKeys = append(publicPathKeys, key.PublicKey())
-		marshalledKey, err := keyutl.MarshalPublicEKToPEM(key.PublicKey())
+		marshalledKey, err := art.MarshalPublicEKToPEM(key.PublicKey())
 		if err != nil {
 			mu.Fatalf("failed to marshal public EK: %v", err)
 		}

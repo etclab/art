@@ -7,13 +7,11 @@ import (
 	"os"
 
 	"github.com/syslab-wm/art"
-	"github.com/syslab-wm/art/internal/cryptutl"
-	"github.com/syslab-wm/art/internal/keyutl"
 	"github.com/syslab-wm/mu"
 )
 
 func verifyMessage(publicKeyPath, msgFile, sigFile string) {
-	valid, err := cryptutl.VerifySignature(publicKeyPath, msgFile, sigFile)
+	valid, err := art.VerifySignature(publicKeyPath, msgFile, sigFile)
 	if err != nil {
 		mu.Fatalf("error: %v", err)
 	}
@@ -40,7 +38,7 @@ func readMessage(msgFilePath string, m *art.SetupMessage) {
 }
 
 func getSetupKey(m *art.SetupMessage) *ecdh.PublicKey {
-	suk, err := keyutl.UnmarshalPublicEKFromPEM(m.Suk)
+	suk, err := art.UnmarshalPublicEKFromPEM(m.Suk)
 	if err != nil {
 		mu.Fatalf("failed to unmarshal public SUK")
 	}

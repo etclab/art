@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/syslab-wm/art/internal/keyutl"
+	"github.com/syslab-wm/art"
 	"github.com/syslab-wm/mu"
 )
 
-func doSign(privPath string, keyform keyutl.KeyEncoding, msgData []byte, sigfile string) error {
-	privKey, err := keyutl.ReadPrivateIKFromFile(privPath, keyform)
+func doSign(privPath string, keyform art.KeyEncoding, msgData []byte, sigfile string) error {
+	privKey, err := art.ReadPrivateIKFromFile(privPath, keyform)
 	if err != nil {
 		return fmt.Errorf("can't read private key file: %v", err)
 	}
@@ -29,8 +29,8 @@ func doSign(privPath string, keyform keyutl.KeyEncoding, msgData []byte, sigfile
 	return nil
 }
 
-func doVerify(pubPath string, keyform keyutl.KeyEncoding, msgData []byte, sigfile string) (bool, error) {
-	pubKey, err := keyutl.ReadPublicIKFromFile(pubPath, keyform)
+func doVerify(pubPath string, keyform art.KeyEncoding, msgData []byte, sigfile string) (bool, error) {
+	pubKey, err := art.ReadPublicIKFromFile(pubPath, keyform)
 	if err != nil {
 		return false, fmt.Errorf("can't read public key file: %v", err)
 	}

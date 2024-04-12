@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/syslab-wm/art/internal/keyutl"
+	"github.com/syslab-wm/art"
 	"github.com/syslab-wm/mu"
 )
 
@@ -59,7 +59,7 @@ type options struct {
 	sigfile string
 
 	// derived
-	encoding keyutl.KeyEncoding
+	encoding art.KeyEncoding
 }
 
 func printUsage() {
@@ -87,7 +87,7 @@ func parseOptions() *options {
 		mu.Fatalf("error: can't specify both -sign and -verify")
 	}
 
-	opts.encoding, err = keyutl.StringToKeyEncoding(opts.keyform)
+	opts.encoding, err = art.StringToKeyEncoding(opts.keyform)
 	if err != nil {
 		mu.Fatalf("%v", err)
 	}

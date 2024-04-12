@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/syslab-wm/art/internal/keyutl"
 	"golang.org/x/crypto/hkdf"
 )
 
@@ -91,7 +90,7 @@ func PathNodeKeys(leafKey *ecdh.PrivateKey, copathKeys []*ecdh.PublicKey) (
 			return nil, fmt.Errorf("ECDH for node failed: %v", err)
 		}
 
-		key, err := keyutl.UnmarshalPrivateX25519FromRaw(raw)
+		key, err := UnmarshalPrivateX25519FromRaw(raw)
 		if err != nil {
 			return nil, fmt.Errorf("can't unmarshal private x25519 key for node: %v", err)
 		}

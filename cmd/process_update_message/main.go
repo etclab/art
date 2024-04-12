@@ -11,7 +11,6 @@ import (
 	"os"
 
 	"github.com/syslab-wm/art"
-	"github.com/syslab-wm/art/internal/keyutl"
 	"github.com/syslab-wm/mu"
 )
 
@@ -69,7 +68,7 @@ func verifyUpdateMessage(sk ed25519.PrivateKey, uMsg art.UpdateMessage,
 func unmarshallPublicKeys(pathKeys [][]byte) []*ecdh.PublicKey {
 	updatedPathKeys := make([]*ecdh.PublicKey, 0, len(pathKeys))
 	for _, pem := range pathKeys {
-		key, err := keyutl.UnmarshalPublicEKFromPEM(pem)
+		key, err := art.UnmarshalPublicEKFromPEM(pem)
 		if err != nil {
 			mu.Fatalf("failed to marshal public EK: %v", err)
 		}

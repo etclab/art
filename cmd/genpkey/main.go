@@ -6,7 +6,7 @@ import (
 	"crypto/rand"
 	"fmt"
 
-	"github.com/syslab-wm/art/internal/keyutl"
+	"github.com/syslab-wm/art"
 	"github.com/syslab-wm/mu"
 )
 
@@ -16,18 +16,18 @@ func createKeyNames(basePath, format, keyType string) (string, string) {
 	return pubPath, privPath
 }
 
-func generateIKPair(pubPath, privPath string, encoding keyutl.KeyEncoding) error {
+func generateIKPair(pubPath, privPath string, encoding art.KeyEncoding) error {
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return err
 	}
 
-	err = keyutl.WritePublicIKToFile(pubKey, pubPath, encoding)
+	err = art.WritePublicIKToFile(pubKey, pubPath, encoding)
 	if err != nil {
 		return err
 	}
 
-	err = keyutl.WritePrivateIKToFile(privKey, privPath, encoding)
+	err = art.WritePrivateIKToFile(privKey, privPath, encoding)
 	if err != nil {
 		return err
 	}
@@ -35,7 +35,7 @@ func generateIKPair(pubPath, privPath string, encoding keyutl.KeyEncoding) error
 	return nil
 }
 
-func generateEKPair(pubPath, privPath string, encoding keyutl.KeyEncoding) error {
+func generateEKPair(pubPath, privPath string, encoding art.KeyEncoding) error {
 	curve := ecdh.X25519()
 	privKey, err := curve.GenerateKey(rand.Reader)
 	if err != nil {
@@ -43,12 +43,12 @@ func generateEKPair(pubPath, privPath string, encoding keyutl.KeyEncoding) error
 	}
 
 	pubKey := privKey.PublicKey()
-	err = keyutl.WritePublicEKToFile(pubKey, pubPath, encoding)
+	err = art.WritePublicEKToFile(pubKey, pubPath, encoding)
 	if err != nil {
 		return err
 	}
 
-	err = keyutl.WritePrivateEKToFile(privKey, privPath, encoding)
+	err = art.WritePrivateEKToFile(privKey, privPath, encoding)
 	if err != nil {
 		return err
 	}

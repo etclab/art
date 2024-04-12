@@ -10,9 +10,7 @@ import (
 	"strings"
 
 	"github.com/syslab-wm/art"
-	"github.com/syslab-wm/art/internal/cryptutl"
 	"github.com/syslab-wm/art/internal/jsonutl"
-	"github.com/syslab-wm/art/internal/keyutl"
 	"github.com/syslab-wm/mu"
 )
 
@@ -35,13 +33,13 @@ func newMember(name, pubIKFile, pubEKFile string) (*member, error) {
 
 	m := &member{name: name, pubIKFile: pubIKFile, pubEKFile: pubEKFile}
 
-	m.pubIK, err = keyutl.ReadPublicIKFromFile(m.pubIKFile, keyutl.PEM)
+	m.pubIK, err = art.ReadPublicIKFromFile(m.pubIKFile, art.PEM)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read public IK for %q from %q: %v",
 			m.name, m.pubIKFile, err)
 	}
 
-	m.pubEK, err = keyutl.ReadPublicEKFromFile(m.pubEKFile, keyutl.PEM)
+	m.pubEK, err = art.ReadPublicEKFromFile(m.pubEKFile, art.PEM)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read public EK for %q from %q: %v",
 			m.name, m.pubEKFile, err)
@@ -98,7 +96,7 @@ func (g *group) generateLeafKeys(setupKey *ecdh.PrivateKey) []*ecdh.PrivateKey {
 			mu.Fatalf("failed to generate leafKey")
 		}
 
-		member.leafKey, err = keyutl.UnmarshalPrivateX25519FromRaw(raw)
+		member.leafKey, err = art.UnmarshalPrivateX25519FromRaw(raw)
 		if err != nil {
 			mu.Fatalf("failed to unmarshal leafKey")
 		}
@@ -161,7 +159,7 @@ func (g *group) setup(opts *options, state *art.TreeState) {
 	state.PublicTree = treePublic
 
 	// TODO: these two lines are just for debugging
-	secretBytes, _ := keyutl.MarshalPrivateEKToPEM(treeSecret)
+	secretBytes, _ := art.MarshalPrivateEKToPEM(treeSecret)
 	fmt.Printf("Tree Secret:\n%v\n", string(secretBytes))
 
 	msg := g.createSetupMessage(suk.PublicKey(), treePublic)
@@ -180,20 +178,20 @@ func (g *group) createSetupMessage(suk *ecdh.PublicKey,
 	marshalledIKS := make([][]byte, 0, len(g.members))
 
 	for _, member := range g.members {
-		marshalledEK, err := keyutl.MarshalPublicEKToPEM(member.pubEK)
+		marshalledEK, err := art.MarshalPublicEKToPEM(member.pubEK)
 		if err != nil {
 			mu.Fatalf("failed to marshal public EK: %v", err)
 		}
 		marshalledEKS = append(marshalledEKS, marshalledEK)
 
-		marshalledIK, err := keyutl.MarshalPublicIKToPEM(member.pubIK)
+		marshalledIK, err := art.MarshalPublicIKToPEM(member.pubIK)
 		if err != nil {
 			mu.Fatalf("failed to marshal public IK: %v", err)
 		}
 		marshalledIKS = append(marshalledIKS, marshalledIK)
 	}
 
-	marshalledSuk, err := keyutl.MarshalPublicEKToPEM(suk)
+	marshalledSuk, err := art.MarshalPublicEKToPEM(suk)
 	if err != nil {
 		mu.Fatalf("failed to marshal public SUK: %v", err)
 	}
@@ -216,7 +214,7 @@ func (g *group) createSetupMessage(suk *ecdh.PublicKey,
 // sign message file with initiator's private identity key
 func signFile(msgFile, privateIKFile, sigFile string) {
 
-	sig, err := cryptutl.SignFile(privateIKFile, msgFile)
+	sig, err := art.SignFile(privateIKFile, msgFile)
 	if err != nil {
 		mu.Fatalf("error signing message file: %v", err)
 	}
