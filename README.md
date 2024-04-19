@@ -48,7 +48,7 @@ make clean
 4. Update Key: Cici updates her key (assuming Cici already has been setup as a member)
 
    ```
-   ./update_key -update-file cici_update_key 3 ./cmd/setup_group/data/cici-ek.pem cici-state.json
+   ./update_key -update-file cici_update_key 3 cici-state.json
    ```
 
 5. Process Update Message: Bob applies the key update message sent by Cici in Step 4

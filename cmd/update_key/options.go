@@ -73,7 +73,7 @@ func parseOptions() *options {
 	if err != nil {
 		mu.Fatalf("error converting positional argument INDEX to int: %v", err)
 	}
-	// TODO: make sure index is >= 1
+
 	opts.treeStateFile = flag.Arg(1)
 
 	if opts.macFile == "" {
