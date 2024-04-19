@@ -22,7 +22,7 @@ go.work
 
 
 # tools that we build
-genpkey
+/genpkey
 /groupsetup
 /pkeyutl
 /process_setup_message
