@@ -48,7 +48,7 @@ func printUsage() {
 
 type options struct {
 	// positional args
-	idx           int
+	index         int
 	treeStateFile string
 
 	// options
@@ -69,7 +69,7 @@ func parseOptions() *options {
 		mu.Fatalf(shortUsage)
 	}
 
-	opts.idx, err = strconv.Atoi(flag.Arg(0))
+	opts.index, err = strconv.Atoi(flag.Arg(0))
 	if err != nil {
 		mu.Fatalf("error converting positional argument INDEX to int: %v", err)
 	}

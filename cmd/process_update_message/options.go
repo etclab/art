@@ -51,7 +51,7 @@ func printUsage() {
 
 type options struct {
 	// positional arguments
-	idx               int
+	index             int
 	privEKFile        string
 	treeStateFile     string
 	updateMessageFile string
@@ -71,7 +71,7 @@ func parseOptions() *options {
 		mu.Fatalf(shortUsage)
 	}
 
-	opts.idx, err = strconv.Atoi(flag.Arg(0))
+	opts.index, err = strconv.Atoi(flag.Arg(0))
 	if err != nil {
 		mu.Fatalf("error converting positional argument INDEX to int: %v", err)
 	}

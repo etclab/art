@@ -44,6 +44,79 @@ type TreeState struct {
 	IKeys      [][]byte
 }
 
+func (treeState *TreeState) Save(fileName string) {
+	treeJson := MarshallTreeState(treeState)
+	jsonutl.Encode(fileName, treeJson)
+}
+
+func (treeState *TreeState) SaveStageKey(fileName string) {
+	stageKey := treeState.Sk
+
+	err := WritePrivateIKToFile(stageKey, fileName, EncodingPEM)
+	if err != nil {
+		mu.Fatalf("error saving stage key: %v", err)
+	}
+}
+
+func (treeState *TreeState) StageKey() ed25519.PrivateKey {
+	return treeState.Sk
+}
+
+func (treeState *TreeState) DeriveTreeKey(index int) *ecdh.PrivateKey {
+	// find the nodes on the copath
+	copathNodes := make([]*ecdh.PublicKey, 0)
+	copathNodes = CoPath(treeState.PublicTree, index, copathNodes)
+
+	// with the leaf key, derive the private keys on the path up to the root
+	pathKeys, err := PathNodeKeys(treeState.Lk, copathNodes)
+	if err != nil {
+		mu.Fatalf("error deriving the private path keys: %v", err)
+	}
+
+	// the initial tree key is the last key in pathKeys
+	return pathKeys[len(pathKeys)-1]
+}
+
+func (treeState *TreeState) Read(treeStateFile string) {
+	var tree treeJson
+
+	treeFile, err := os.Open(treeStateFile)
+	if err != nil {
+		mu.Fatalf("error opening file %s", treeStateFile)
+	}
+
+	decoder := json.NewDecoder(treeFile)
+	err = decoder.Decode(&tree)
+	if err != nil {
+		mu.Fatalf("error reading tree state from %s", treeStateFile)
+	}
+
+	defer treeFile.Close()
+
+	treeState.UnMarshallTreeState(&tree)
+}
+
+func (state *TreeState) DeriveStageKey(treeSecret *ecdh.PrivateKey) {
+	treeKeys, err := state.PublicTree.MarshalKeys()
+	if err != nil {
+		mu.Fatalf("failed to marshal the updated tree's public keys: %v", err)
+	}
+
+	stageInfo := StageKeyInfo{
+		PrevStageKey:  state.Sk,
+		TreeSecretKey: treeSecret.Bytes(),
+		IKeys:         state.IKeys,
+		TreeKeys:      treeKeys,
+	}
+	stageKey, err := DeriveStageKey(&stageInfo)
+
+	if err != nil {
+		mu.Fatalf("DeriveStageKey failed: %v", err)
+	}
+
+	state.Sk = stageKey
+}
+
 // leftSubtreeSize computes the number of leaves in the leftsubtree of a
 // tree with x leaves
 func leftSubtreeSize(x int) int {
@@ -323,6 +396,14 @@ func DeriveLeafKey(ekPath string, suk *ecdh.PublicKey) (*ecdh.PrivateKey, error)
 	return leafKey, nil
 }
 
+func DeriveLeafKeyOrFail(privKeyFile string, setupKey *ecdh.PublicKey) *ecdh.PrivateKey {
+	leafKey, err := DeriveLeafKey(privKeyFile, setupKey)
+	if err != nil {
+		mu.Fatalf("error deriving the private leaf key: %v", err)
+	}
+	return leafKey
+}
+
 func MarshallTreeState(state *TreeState) *treeJson {
 	publicTree, err := state.PublicTree.MarshalKeys()
 	if err != nil {
@@ -339,11 +420,6 @@ func MarshallTreeState(state *TreeState) *treeJson {
 		mu.Fatalf("error marshalling private leaf key: %v", err)
 	}
 	return &treeJson{publicTree, sk, lk, state.IKeys}
-}
-
-func SaveTreeState(outStateFile string, state *TreeState) {
-	treeJson := MarshallTreeState(state)
-	jsonutl.Encode(outStateFile, treeJson)
 }
 
 func UnMarshallTreeState(tree *treeJson) *TreeState {
@@ -368,6 +444,27 @@ func UnMarshallTreeState(tree *treeJson) *TreeState {
 	}
 
 	return &treeState
+}
+
+func (treeState *TreeState) UnMarshallTreeState(tree *treeJson) {
+	var err error
+
+	treeState.IKeys = tree.IKeys
+
+	treeState.PublicTree, err = UnmarshalKeysToPublicTree(tree.PublicTree)
+	if err != nil {
+		mu.Fatalf("error unmarshalling private tree from TREE_FILE", err)
+	}
+
+	treeState.Sk, err = UnmarshalPrivateIKFromPEM(tree.Sk)
+	if err != nil {
+		mu.Fatalf("error unmarshalling private stage key from TREE_FILE: %v", err)
+	}
+
+	treeState.Lk, err = UnmarshalPrivateEKFromPEM(tree.Lk)
+	if err != nil {
+		mu.Fatalf("error unmarshalling private leaf key from TREE_FILE: %v", err)
+	}
 }
 
 func ReadTreeState(treeStateFile string) *TreeState {
@@ -424,4 +521,16 @@ func UpdateCoPathNodes(index int, state *TreeState) []*ecdh.PrivateKey {
 	}
 
 	return pathKeys
+}
+
+func generateTree(leafKeys []*ecdh.PrivateKey) (*ecdh.PrivateKey, *PublicNode) {
+	treeRoot, err := CreateTree(leafKeys)
+	if err != nil {
+		mu.Fatalf("failed to create ART tree: %v", err)
+	}
+
+	treePublic := treeRoot.PublicKeys()
+	treeSecret := treeRoot.GetSk() // TODO: rename to just treeRoot.Key(); // this is tk
+
+	return treeSecret, treePublic
 }

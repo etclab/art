@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"hash"
 	"os"
+
+	"github.com/syslab-wm/mu"
 )
 
 func NewHMAC(key []byte) hash.Hash {
@@ -51,4 +53,14 @@ func VerifySignature(pkPath, msgFile, sigFile string) (bool, error) {
 
 	valid := ed25519.Verify(pk, msgData, sigData)
 	return valid, nil
+}
+
+func VerifyMessageSignature(publicKeyPath, msgFile, sigFile string) {
+	valid, err := VerifySignature(publicKeyPath, msgFile, sigFile)
+	if err != nil {
+		mu.Fatalf("error: %v", err)
+	}
+	if !valid {
+		mu.Fatalf("error: message signature verification failed for %v", msgFile)
+	}
 }

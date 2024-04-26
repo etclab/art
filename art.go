@@ -3,25 +3,15 @@ package art
 import (
 	"bytes"
 	"crypto/ecdh"
+	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
 	"io"
 
+	"github.com/syslab-wm/mu"
 	"golang.org/x/crypto/hkdf"
 )
-
-type SetupMessage struct {
-	IKeys    [][]byte `json:"iKeys"`
-	EKeys    [][]byte `json:"eKeys"`
-	Suk      []byte   `json:"suk"`
-	TreeKeys [][]byte `json:"treeKeys"`
-}
-
-type UpdateMessage struct {
-	Idx            int
-	PathPublicKeys [][]byte
-}
 
 const StageKeySize = 32
 
@@ -60,8 +50,6 @@ func (skInfo *StageKeyInfo) GetInfo() []byte {
 	return bytes.Join(skInfo.IKeys, []byte(""))
 }
 
-//
-
 // prev sk, current tk, IDs, Public Tree
 func DeriveStageKey(skInfo *StageKeyInfo) ([]byte, error) {
 	hash := sha256.New
@@ -99,4 +87,142 @@ func PathNodeKeys(leafKey *ecdh.PrivateKey, copathKeys []*ecdh.PublicKey) (
 	}
 
 	return pathKeys, nil
+}
+
+func marshallPublicKeys(pathKeys []*ecdh.PrivateKey) [][]byte {
+	marshalledPathKeys := make([][]byte, 0, len(pathKeys))
+
+	for _, key := range pathKeys {
+		marshalledKey, err := MarshalPublicEKToPEM(key.PublicKey())
+		if err != nil {
+			mu.Fatalf("failed to marshal public EK: %v", err)
+		}
+		marshalledPathKeys = append(marshalledPathKeys, marshalledKey)
+	}
+
+	return marshalledPathKeys
+}
+
+func CreateUpdateMessage(index int, pathKeys []*ecdh.PrivateKey) UpdateMessage {
+	marshalledPathKeys := marshallPublicKeys(pathKeys)
+	updateMsg := UpdateMessage{
+		Idx:            index,
+		PathPublicKeys: marshalledPathKeys,
+	}
+	return updateMsg
+}
+
+func GetPublicKeys(pathKeys []*ecdh.PrivateKey) []*ecdh.PublicKey {
+	publicPathKeys := make([]*ecdh.PublicKey, 0, len(pathKeys))
+	for _, key := range pathKeys {
+		publicPathKeys = append(publicPathKeys, key.PublicKey())
+	}
+	return publicPathKeys
+}
+
+func UnmarshallPublicKeys(pathKeys [][]byte) []*ecdh.PublicKey {
+	updatedPathKeys := make([]*ecdh.PublicKey, 0, len(pathKeys))
+	for _, pem := range pathKeys {
+		key, err := UnmarshalPublicEKFromPEM(pem)
+		if err != nil {
+			mu.Fatalf("failed to marshal public EK: %v", err)
+		}
+		updatedPathKeys = append(updatedPathKeys, key)
+	}
+	return updatedPathKeys
+}
+
+func SetupGroup(configFile, initiator string) (*TreeState, *SetupMessage) {
+
+	g := &Group{}
+	members := getMembersFromFile(configFile)
+	g.addMembers(members)
+
+	suk := g.generateInitiatorKeys(initiator)
+	leafKeys := g.generateLeafKeys(suk)
+
+	treeSecret, treePublic := generateTree(leafKeys)
+	setupMsg := g.createSetupMessage(suk.PublicKey(), treePublic)
+
+	var state TreeState
+	state.Lk = g.initiator.leafKey
+	state.PublicTree = treePublic
+	state.IKeys = setupMsg.IKeys
+	state.Sk = setupMsg.DeriveStageKey(treeSecret)
+
+	return &state, setupMsg
+}
+
+func ProcessSetupMessage(index int, privEKFile, setupMsgFile, initiatorPubIKFile,
+	sigFile string) *TreeState {
+
+	VerifyMessageSignature(initiatorPubIKFile, setupMsgFile, sigFile)
+
+	var state TreeState
+	var setupMsg SetupMessage
+	setupMsg.Read(setupMsgFile)
+	suk := setupMsg.GetSetupKey()
+	state.PublicTree = setupMsg.GetPublicTree()
+	state.Lk = DeriveLeafKeyOrFail(privEKFile, suk)
+	state.IKeys = setupMsg.IKeys
+
+	treeSecret := state.DeriveTreeKey(index)
+	state.Sk = setupMsg.DeriveStageKey(treeSecret)
+
+	return &state
+}
+
+func UpdateKey(index int, treeStateFile string) (*UpdateMessage,
+	*TreeState, *ed25519.PrivateKey) {
+
+	var err error
+	var state TreeState
+
+	state.Read(treeStateFile)
+
+	// create a new leaf key
+	state.Lk, err = DHKeyGen()
+	if err != nil {
+		mu.Fatalf("error creating the new leaf key: %v", err)
+	}
+
+	pathKeys := UpdateCoPathNodes(index, &state)
+	treeSecret := pathKeys[len(pathKeys)-1]
+
+	publicPathKeys := GetPublicKeys(pathKeys)
+
+	updateMsg := CreateUpdateMessage(index, pathKeys)
+
+	// replace the updated nodes in the full tree representation
+	state.PublicTree = UpdatePublicTree(publicPathKeys, state.PublicTree,
+		index)
+
+	prevStageKey := state.Sk
+	state.DeriveStageKey(treeSecret)
+
+	return &updateMsg, &state, &prevStageKey
+}
+
+func ProcessUpdateMessage(index int, treeStateFile, updateMsgFile, macFile string) *TreeState {
+
+	var updateMsg UpdateMessage
+	updateMsg.Read(updateMsgFile)
+
+	var state TreeState
+	state.Read(treeStateFile)
+
+	updateMsg.VerifyUpdateMessage(state.Sk, macFile)
+
+	updatedPathKeys := UnmarshallPublicKeys(updateMsg.PathPublicKeys)
+
+	// replace the updated nodes in the full tree representation
+	state.PublicTree = UpdatePublicTree(updatedPathKeys, state.PublicTree,
+		updateMsg.Idx)
+
+	pathKeys := UpdateCoPathNodes(index, &state)
+	treeSecret := pathKeys[len(pathKeys)-1]
+
+	state.DeriveStageKey(treeSecret)
+
+	return &state
 }
