@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/syslab-wm/mu"
+	"github.com/etclab/mu"
 )
 
 type Member struct {

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/syslab-wm/art"
-	"github.com/syslab-wm/mu"
+	"github.com/etclab/art"
+	"github.com/etclab/mu"
 )
 
 func doSign(privPath string, keyform art.KeyEncoding, msgData []byte, sigfile string) error {

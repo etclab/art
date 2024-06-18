@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/syslab-wm/mu"
+	"github.com/etclab/mu"
 )
 
 const shortUsage = `Usage: process_setup_message [options] INDEX PRIV_EK_FILE \ 

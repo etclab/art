@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/syslab-wm/mu"
+	"github.com/etclab/mu"
 )
 
 const shortUsage = `Usage: process_update_message [options] INDEX \ 

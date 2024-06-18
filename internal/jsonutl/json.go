@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/syslab-wm/mu"
+	"github.com/etclab/mu"
 )
 
 func Encode(fileName string, data interface{}) {

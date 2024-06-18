@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/syslab-wm/mu"
+	"github.com/etclab/mu"
 )
 
 const shortUsage = "Usage: update_key [options] INDEX TREE_FILE"

@@ -6,8 +6,8 @@ import (
 	"crypto/rand"
 	"fmt"
 
-	"github.com/syslab-wm/art"
-	"github.com/syslab-wm/mu"
+	"github.com/etclab/art"
+	"github.com/etclab/mu"
 )
 
 func createKeyNames(basePath, format, keyType string) (string, string) {

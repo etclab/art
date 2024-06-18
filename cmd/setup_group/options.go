@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/syslab-wm/mu"
+	"github.com/etclab/mu"
 )
 
 const shortUsage = "setup_group [options] CONFIG_FILE PRIV_IK_FILE"

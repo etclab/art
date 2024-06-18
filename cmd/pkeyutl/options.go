@@ -4,8 +4,8 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/syslab-wm/art"
-	"github.com/syslab-wm/mu"
+	"github.com/etclab/art"
+	"github.com/etclab/mu"
 )
 
 const shortUsage = "Usage: pkeyutl [options] MSGFILE"

@@ -8,8 +8,8 @@ import (
 	"math"
 	"os"
 
-	"github.com/syslab-wm/art/internal/jsonutl"
-	"github.com/syslab-wm/mu"
+	"github.com/etclab/art/internal/jsonutl"
+	"github.com/etclab/mu"
 )
 
 type Node struct {

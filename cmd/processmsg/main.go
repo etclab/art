@@ -16,8 +16,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/syslab-wm/art"
-	"github.com/syslab-wm/mu"
+	"github.com/etclab/art"
+	"github.com/etclab/mu"
 
 	"golang.org/x/crypto/hkdf"
 )

@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/syslab-wm/mu"
+	"github.com/etclab/mu"
 	"golang.org/x/crypto/hkdf"
 )
 

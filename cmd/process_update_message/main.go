@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/syslab-wm/art"
+	"github.com/etclab/art"
 )
 
 func main() {

@@ -8,7 +8,7 @@ import (
 	"hash"
 	"os"
 
-	"github.com/syslab-wm/mu"
+	"github.com/etclab/mu"
 )
 
 func NewHMAC(key []byte) hash.Hash {

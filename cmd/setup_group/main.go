@@ -4,8 +4,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/syslab-wm/art"
-	"github.com/syslab-wm/mu"
+	"github.com/etclab/art"
+	"github.com/etclab/mu"
 )
 
 func main() {

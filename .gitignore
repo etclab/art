@@ -30,6 +30,8 @@ go.work
 /processmsg
 /setup_group
 /update_key
+/publish
+/subscribe
 
 # miscellaneous, temporary configuration that we may create when running
 # the tools
