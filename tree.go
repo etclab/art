@@ -97,16 +97,18 @@ func (treeState *TreeState) Read(treeStateFile string) {
 }
 
 func (state *TreeState) DeriveStageKey(treeSecret *ecdh.PrivateKey) {
+	/* SMH BENCH
 	treeKeys, err := state.PublicTree.MarshalKeys()
 	if err != nil {
 		mu.Fatalf("failed to marshal the updated tree's public keys: %v", err)
 	}
+	*/
 
 	stageInfo := StageKeyInfo{
 		PrevStageKey:  state.Sk,
 		TreeSecretKey: treeSecret.Bytes(),
 		IKeys:         state.IKeys,
-		TreeKeys:      treeKeys,
+		//TreeKeys:      treeKeys,
 	}
 	stageKey, err := DeriveStageKey(&stageInfo)
 
@@ -511,7 +513,7 @@ func UpdatePublicTree(pathKeys []*ecdh.PublicKey, root *PublicNode,
 
 func UpdateCoPathNodes(index int, state *TreeState) []*ecdh.PrivateKey {
 	// get the copath nodes
-	copathNodes := make([]*ecdh.PublicKey, 0)
+	copathNodes := make([]*ecdh.PublicKey, 0, 20) // SMH BENCH ADDED 20
 	copathNodes = CoPath(state.PublicTree, index, copathNodes)
 
 	// with the leaf key, derive the private keys on the path up to the root
@@ -523,7 +525,7 @@ func UpdateCoPathNodes(index int, state *TreeState) []*ecdh.PrivateKey {
 	return pathKeys
 }
 
-func generateTree(leafKeys []*ecdh.PrivateKey) (*ecdh.PrivateKey, *PublicNode) {
+func GenerateTree(leafKeys []*ecdh.PrivateKey) (*ecdh.PrivateKey, *PublicNode) {
 	treeRoot, err := CreateTree(leafKeys)
 	if err != nil {
 		mu.Fatalf("failed to create ART tree: %v", err)

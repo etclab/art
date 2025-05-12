@@ -1,4 +1,4 @@
-progs= genpkey pkeyutl setup_group process_setup_message update_key process_update_message
+progs= genpkey pkeyutl setup_group process_setup_message update_key process_update_message benchmark_update
 
 all:  $(progs)
 
@@ -13,5 +13,9 @@ fmt:
 
 clean:
 	rm -f $(progs)
+
+benchmark: fmt
+	go test -v -bench=. -benchmem
+
 
 .PHONY: all vet fmt clean

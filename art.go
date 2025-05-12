@@ -41,7 +41,7 @@ func (skInfo *StageKeyInfo) GetIKM() []byte {
 	ikm := make([]byte, 0)
 	ikm = append(ikm, skInfo.PrevStageKey...)
 	ikm = append(ikm, skInfo.TreeSecretKey...)
-	ikm = append(ikm, bytes.Join(skInfo.TreeKeys, []byte(""))...)
+	//ikm = append(ikm, bytes.Join(skInfo.TreeKeys, []byte(""))...) // SMH BENCH
 
 	return ikm
 }
@@ -53,10 +53,11 @@ func (skInfo *StageKeyInfo) GetInfo() []byte {
 // prev sk, current tk, IDs, Public Tree
 func DeriveStageKey(skInfo *StageKeyInfo) ([]byte, error) {
 	hash := sha256.New
-	ikm := skInfo.GetIKM()   // HKDF secret
-	info := skInfo.GetInfo() // HKDF info
+	ikm := skInfo.GetIKM() // HKDF secret
+	//info := skInfo.GetInfo() // HKDF info         SMH BENCH
 
-	hkdf := hkdf.New(hash, ikm, nil, info) // nil salt
+	//hkdf := hkdf.New(hash, ikm, nil, info) // nil salt
+	hkdf := hkdf.New(hash, ikm, nil, nil) // nil salt SMH BENCH
 	stageKey := make([]byte, StageKeySize)
 	_, err := io.ReadFull(hkdf, stageKey)
 	if err != nil {
@@ -68,7 +69,7 @@ func DeriveStageKey(skInfo *StageKeyInfo) ([]byte, error) {
 
 func PathNodeKeys(leafKey *ecdh.PrivateKey, copathKeys []*ecdh.PublicKey) (
 	[]*ecdh.PrivateKey, error) {
-	pathKeys := make([]*ecdh.PrivateKey, 0)
+	pathKeys := make([]*ecdh.PrivateKey, 0, len(copathKeys))
 	pathKeys = append(pathKeys, leafKey)
 
 	// starting at the "bottom" of the copath and working up
@@ -133,19 +134,18 @@ func UnmarshallPublicKeys(pathKeys [][]byte) []*ecdh.PublicKey {
 }
 
 func SetupGroup(configFile, initiator string) (*TreeState, *SetupMessage) {
-
 	g := &Group{}
-	members := getMembersFromFile(configFile)
-	g.addMembers(members)
+	members := GetMembersFromFile(configFile)
+	g.AddMembers(members)
 
-	suk := g.generateInitiatorKeys(initiator)
-	leafKeys := g.generateLeafKeys(suk)
+	suk := g.GenerateInitiatorKeys(initiator)
+	leafKeys := g.GenerateLeafKeys(suk)
 
-	treeSecret, treePublic := generateTree(leafKeys)
-	setupMsg := g.createSetupMessage(suk.PublicKey(), treePublic)
+	treeSecret, treePublic := GenerateTree(leafKeys)
+	setupMsg := g.CreateSetupMessage(suk.PublicKey(), treePublic)
 
 	var state TreeState
-	state.Lk = g.initiator.leafKey
+	state.Lk = g.initiator.LeafKey
 	state.PublicTree = treePublic
 	state.IKeys = setupMsg.IKeys
 	state.Sk = setupMsg.DeriveStageKey(treeSecret)
