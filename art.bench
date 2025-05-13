@@ -1,0 +1,47 @@
+go fmt ./...
+go test -v -bench=. -benchmem
+goos: darwin
+goarch: arm64
+pkg: github.com/etclab/art
+cpu: Apple M4
+BenchmarkUpdate
+BenchmarkUpdate/Update-4
+BenchmarkUpdate/Update-4-10         	    8420	    138268 ns/op	    9488 B/op	     142 allocs/op
+BenchmarkUpdate/Update-8
+BenchmarkUpdate/Update-8-10         	    6254	    194862 ns/op	   12152 B/op	     181 allocs/op
+BenchmarkUpdate/Update-16
+BenchmarkUpdate/Update-16-10        	    4873	    247333 ns/op	   14840 B/op	     220 allocs/op
+BenchmarkUpdate/Update-32
+BenchmarkUpdate/Update-32-10        	    3987	    304578 ns/op	   17504 B/op	     259 allocs/op
+BenchmarkUpdate/Update-64
+BenchmarkUpdate/Update-64-10        	    3351	    361544 ns/op	   20184 B/op	     298 allocs/op
+BenchmarkUpdate/Update-128
+BenchmarkUpdate/Update-128-10       	    2851	    412706 ns/op	   22848 B/op	     337 allocs/op
+BenchmarkUpdate/Update-256
+BenchmarkUpdate/Update-256-10       	    2563	    485956 ns/op	   25528 B/op	     376 allocs/op
+BenchmarkUpdate/Update-512
+BenchmarkUpdate/Update-512-10       	    2252	    521595 ns/op	   28192 B/op	     415 allocs/op
+BenchmarkUpdate/Update-1024
+BenchmarkUpdate/Update-1024-10      	    2085	    584776 ns/op	   30888 B/op	     454 allocs/op
+BenchmarkUpdate/Update-2048
+BenchmarkUpdate/Update-2048-10      	    1891	    636424 ns/op	   33536 B/op	     493 allocs/op
+BenchmarkUpdate/Update-4096
+BenchmarkUpdate/Update-4096-10      	    1747	    687234 ns/op	   36216 B/op	     532 allocs/op
+BenchmarkUpdate/Update-8192
+BenchmarkUpdate/Update-8192-10      	    1626	    741968 ns/op	   38896 B/op	     571 allocs/op
+BenchmarkUpdate/Update-16384
+BenchmarkUpdate/Update-16384-10     	    1509	    804969 ns/op	   41576 B/op	     610 allocs/op
+BenchmarkUpdate/Update-32768
+BenchmarkUpdate/Update-32768-10     	    1416	    857593 ns/op	   44224 B/op	     649 allocs/op
+BenchmarkUpdate/Update-65536
+BenchmarkUpdate/Update-65536-10     	    1329	    913871 ns/op	   46904 B/op	     688 allocs/op
+BenchmarkUpdate/Update-131072
+BenchmarkUpdate/Update-131072-10    	    1249	    968141 ns/op	   49600 B/op	     727 allocs/op
+BenchmarkUpdate/Update-262144
+BenchmarkUpdate/Update-262144-10    	    1183	   1023146 ns/op	   52264 B/op	     766 allocs/op
+BenchmarkUpdate/Update-524288
+BenchmarkUpdate/Update-524288-10    	    1084	   1112788 ns/op	   54928 B/op	     805 allocs/op
+BenchmarkUpdate/Update-1048576
+BenchmarkUpdate/Update-1048576-10   	    1048	   1145776 ns/op	   57592 B/op	     844 allocs/op
+PASS
+ok  	github.com/etclab/art	240.012s
