@@ -12,6 +12,7 @@ import (
 	"github.com/etclab/mu"
 )
 
+// Node is a node in the ART tree
 type Node struct {
 	sk        *ecdh.PrivateKey
 	left      *Node
@@ -21,11 +22,15 @@ type Node struct {
 	numLeaves int
 }
 
+// PublicNode is a node in teh public ART tree
 type PublicNode struct {
-	pk     *ecdh.PublicKey
-	Left   *PublicNode
-	Right  *PublicNode
-	Height int // a height of zero indicates a leaf node
+	pk    *ecdh.PublicKey
+	Left  *PublicNode
+	Right *PublicNode
+
+	// The nodes height, calculated upwards.  That is, a height of zero
+	// indicates a leaf node.
+	Height int
 }
 
 type treeJson struct {
@@ -35,20 +40,24 @@ type treeJson struct {
 	IKeys      [][]byte `json:"iKeys"`
 }
 
+// TODO: TreeState: maybe add a tracker for the stage number to ensure updates
+// are processed in the correct order
+
+// TODO:
 type TreeState struct {
-	// TODO: maybe add a tracker for the stage number to ensure updates
-	// are processed in the correct order
 	PublicTree *PublicNode
 	Sk         ed25519.PrivateKey
 	Lk         *ecdh.PrivateKey
 	IKeys      [][]byte
 }
 
+// TODO:
 func (treeState *TreeState) Save(fileName string) {
 	treeJson := MarshallTreeState(treeState)
 	jsonutl.Encode(fileName, treeJson)
 }
 
+// TODO:
 func (treeState *TreeState) SaveStageKey(fileName string) {
 	stageKey := treeState.Sk
 
@@ -58,10 +67,12 @@ func (treeState *TreeState) SaveStageKey(fileName string) {
 	}
 }
 
+// TODO:
 func (treeState *TreeState) StageKey() ed25519.PrivateKey {
 	return treeState.Sk
 }
 
+// TODO:
 func (treeState *TreeState) DeriveTreeKey(index int) *ecdh.PrivateKey {
 	// find the nodes on the copath
 	copathNodes := make([]*ecdh.PublicKey, 0)
@@ -77,6 +88,7 @@ func (treeState *TreeState) DeriveTreeKey(index int) *ecdh.PrivateKey {
 	return pathKeys[len(pathKeys)-1]
 }
 
+// TODO:
 func (treeState *TreeState) Read(treeStateFile string) {
 	var tree treeJson
 
@@ -96,6 +108,7 @@ func (treeState *TreeState) Read(treeStateFile string) {
 	treeState.UnMarshallTreeState(&tree)
 }
 
+// TODO:
 func (state *TreeState) DeriveStageKey(treeSecret *ecdh.PrivateKey) {
 	treeKeys, err := state.PublicTree.MarshalKeys()
 	if err != nil {
@@ -158,10 +171,12 @@ func createTree(leafKeys []*ecdh.PrivateKey, x int, y int) (*Node, error) {
 
 }
 
+// TODO:
 func CreateTree(leafKeys []*ecdh.PrivateKey) (*Node, error) {
 	return createTree(leafKeys, 0, 0)
 }
 
+// TODO:
 func (node *Node) PublicKeys() *PublicNode {
 	if node == nil {
 		return nil
@@ -179,6 +194,8 @@ func (node *Node) PublicKeys() *PublicNode {
 *** Helper functions for private trees ***
 ***
  */
+
+// TODO:
 func (node *Node) MarshalKeys() ([][]byte, error) {
 	marshalled_list := make([][]byte, 0)
 
@@ -210,6 +227,7 @@ func (node *Node) MarshalKeys() ([][]byte, error) {
 	return marshalled_list, nil
 }
 
+// TODO:
 // constructing a private tree from a level-order list of marshalled keys
 func UnmarshalKeysToPrivateTree(marshalledKeys [][]byte) (*Node, error) {
 	root := &Node{sk: nil, left: nil, right: nil, x: 0, y: 0}
@@ -245,6 +263,7 @@ func insertNode(root *Node, sk *ecdh.PrivateKey, nodeQueue []*Node) (*Node, []*N
 	return root, nodeQueue
 }
 
+// GetSk returns the secret (private key) of an ART node.
 func (Node *Node) GetSk() *ecdh.PrivateKey {
 	return Node.sk
 }
@@ -255,6 +274,7 @@ func (Node *Node) GetSk() *ecdh.PrivateKey {
 ***
  */
 
+// TODO:
 // MarshalKeys marshals the public keys level-by-level, starting
 // at the root.
 func (publicNode *PublicNode) MarshalKeys() ([][]byte, error) {
@@ -290,14 +310,17 @@ func (publicNode *PublicNode) MarshalKeys() ([][]byte, error) {
 	return marshalledList, nil
 }
 
+// TODO:
 func (publicNode *PublicNode) GetPk() *ecdh.PublicKey {
 	return publicNode.pk
 }
 
+// TODO:
 func (publicNode *PublicNode) UpdatePk(newPK *ecdh.PublicKey) {
 	publicNode.pk = newPK
 }
 
+// TODO:
 // constructing a public tree from a level-order list of marshalled keys
 func UnmarshalKeysToPublicTree(marshalledKeys [][]byte) (*PublicNode, error) {
 	root := &PublicNode{pk: nil, Left: nil, Right: nil}
@@ -355,6 +378,7 @@ func updatePublicHeights(node *PublicNode) *PublicNode {
 	return node
 }
 
+// TODO:
 func CoPath(root *PublicNode, idx int, copathNodes []*ecdh.PublicKey) []*ecdh.PublicKey {
 	// if len(copathNodes) == 0 {
 	// 	copathNodes = append(copathNodes, root.GetPk())
@@ -377,6 +401,7 @@ func CoPath(root *PublicNode, idx int, copathNodes []*ecdh.PublicKey) []*ecdh.Pu
 	}
 }
 
+// TODO:
 func DeriveLeafKey(ekPath string, suk *ecdh.PublicKey) (*ecdh.PrivateKey, error) {
 	ek, err := ReadPrivateEKFromFile(ekPath, EncodingPEM)
 	if err != nil {
@@ -396,6 +421,7 @@ func DeriveLeafKey(ekPath string, suk *ecdh.PublicKey) (*ecdh.PrivateKey, error)
 	return leafKey, nil
 }
 
+// TODO:
 func DeriveLeafKeyOrFail(privKeyFile string, setupKey *ecdh.PublicKey) *ecdh.PrivateKey {
 	leafKey, err := DeriveLeafKey(privKeyFile, setupKey)
 	if err != nil {
@@ -404,6 +430,7 @@ func DeriveLeafKeyOrFail(privKeyFile string, setupKey *ecdh.PublicKey) *ecdh.Pri
 	return leafKey
 }
 
+// TODO:
 func MarshallTreeState(state *TreeState) *treeJson {
 	publicTree, err := state.PublicTree.MarshalKeys()
 	if err != nil {
@@ -422,6 +449,7 @@ func MarshallTreeState(state *TreeState) *treeJson {
 	return &treeJson{publicTree, sk, lk, state.IKeys}
 }
 
+// TODO:
 func UnMarshallTreeState(tree *treeJson) *TreeState {
 	var err error
 	var treeState TreeState
@@ -446,6 +474,7 @@ func UnMarshallTreeState(tree *treeJson) *TreeState {
 	return &treeState
 }
 
+// TODO:
 func (treeState *TreeState) UnMarshallTreeState(tree *treeJson) {
 	var err error
 
@@ -467,6 +496,7 @@ func (treeState *TreeState) UnMarshallTreeState(tree *treeJson) {
 	}
 }
 
+// TODO:
 func ReadTreeState(treeStateFile string) *TreeState {
 	var tree treeJson
 
@@ -486,6 +516,7 @@ func ReadTreeState(treeStateFile string) *TreeState {
 	return UnMarshallTreeState(&tree)
 }
 
+// TODO:
 // update the full tree with the new leaf and path keys
 func UpdatePublicTree(pathKeys []*ecdh.PublicKey, root *PublicNode,
 	idx int) *PublicNode {
@@ -509,6 +540,7 @@ func UpdatePublicTree(pathKeys []*ecdh.PublicKey, root *PublicNode,
 	return root
 }
 
+// TODO:
 func UpdateCoPathNodes(index int, state *TreeState) []*ecdh.PrivateKey {
 	// get the copath nodes
 	copathNodes := make([]*ecdh.PublicKey, 0)
