@@ -121,11 +121,15 @@ func (treeState *TreeState) Read(treeStateFile string) {
 
 // DeriveStageKey derives the stage key (the group key)
 func (state *TreeState) DeriveStageKey(treeSecret *ecdh.PrivateKey) {
-	/* SMH BENCH
-	treeKeys, err := state.PublicTree.MarshalKeys()
-	if err != nil {
-		mu.Fatalf("failed to marshal the updated tree's public keys: %v", err)
-	}
+	/* XXX: in our implementation, PublicTree.MarshalKeys is a n O(N)
+	    * operation as it marshals all the nodes, even the ones that have not
+	    * changed.  A production implementation would only remarshal the O(log(N))
+	    * nodes that changed.
+
+		treeKeys, err := state.PublicTree.MarshalKeys()
+		if err != nil {
+			mu.Fatalf("failed to marshal the updated tree's public keys: %v", err)
+		}
 	*/
 
 	stageInfo := StageKeyInfo{
@@ -581,7 +585,7 @@ func UpdatePublicTree(pathKeys []*ecdh.PublicKey, root *PublicNode,
 // leaf to the root.
 func UpdateCoPathNodes(index int, state *TreeState) []*ecdh.PrivateKey {
 	// get the copath nodes
-	copathNodes := make([]*ecdh.PublicKey, 0, 20) // SMH BENCH ADDED 20
+	copathNodes := make([]*ecdh.PublicKey, 0, 20) // XXX: ADDED 20 for benchmarking
 	copathNodes = CoPath(state.PublicTree, index, copathNodes)
 
 	// with the leaf key, derive the private keys on the path up to the root
