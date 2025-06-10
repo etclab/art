@@ -399,8 +399,8 @@ func updatePublicHeights(node *PublicNode) *PublicNode {
 	return node
 }
 
-//	CoPath returns the list of public node keys (x25519 keys) for all nodes on
-//	the copath to the leaf at index idx.
+// CoPath returns the list of public node keys (x25519 keys) for all nodes on
+// the copath to the leaf at index idx.
 //
 // This function corresponds to the CoPath function in Algorithm 2 of the "On
 // Ends-to-Ends Encryption" [paper].
