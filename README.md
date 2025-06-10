@@ -82,7 +82,8 @@ make clean
 # Benchmarking
 
 The `benchmarking` branch contains Go benchmarks for the ART implementation.
-To run the benchmarks, switch to this branch and enter:
+(The branch includes a few small changes and instrumentation to the code to facilitate
+ benchmarking.) To run the benchmarks, switch to this branch and enter:
 
 ```
 make benchmark
