@@ -1,12 +1,34 @@
 # art
 
-Implementation of the Asynchronous Ratcheting Tree data structure and
-associated protocols, based on the CCS'19 paper "On Ends-to-Ends Encrytpion" by
-Cohn-Gordon, et al.
+Implementation of the Asynchronous Ratcheting Tree (ART) data structure and
+associated protocols, based on the CCS '18 paper
+[On Ends-to-Ends Encryption: Asynchronous Group Messaging with Strong Security
+Guarantees](https://dl.acm.org/doi/10.1145/3243734.3243747) by Cohn-Gordon, et al.
+
 
 # Building
 
-To build the command-line utilities, do:
+The module is intended as a library that other projects may use.  However,
+the module includes a set of command-line utilities that exercise the major
+operations.  These utilities are:
+
+- `genpkey`:
+    Generate ephemeral keys (aka setup keys) and identity keys.
+- `pkeyutl`
+    Create and verify signatures on files.
+- `setup_group`
+    Setup the ART group.
+- `process_setup_message`
+    Process a group setup message as a group member at a given index.
+- `update_key`
+    Update the leaf key for a member at given position.
+- `process_update_message`
+    Process a key update message as a group member at given index.
+
+Each command-line utility provides detailed usage statement when invoked with
+the `-h` or `--help` option.
+
+To build the command-line utilities, enter:
 
 ```
 make
@@ -56,3 +78,13 @@ make clean
    ```
    ./process_update_message 2 ./cmd/setup_group/data/bob-ek.pem bob-state.json cici_update_key
    ```
+
+# Benchmarking
+
+The `benchmarking` branch contains Go benchmarks for the ART implementation.
+To run the benchmarks, switch to this branch and enter:
+
+```
+make benchmark
+```
+
